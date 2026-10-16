@@ -48,6 +48,7 @@ content without touching CMS-managed data.
 | [`specs/001-cms-content-sync/data-model.md`](specs/001-cms-content-sync/data-model.md) | Tables, constraints, indexes, and state machines |
 | [`specs/001-cms-content-sync/contracts/openapi.yaml`](specs/001-cms-content-sync/contracts/openapi.yaml) | OpenAPI 3.1 contract for the webhook and consumer API |
 | [`specs/001-cms-content-sync/quickstart.md`](specs/001-cms-content-sync/quickstart.md) | End-to-end validation scenarios |
+| [`specs/001-cms-content-sync/tasks.md`](specs/001-cms-content-sync/tasks.md) | 98 dependency-ordered, test-first implementation tasks |
 
 ## How this project is built
 
@@ -58,7 +59,7 @@ This repository follows **Spec-Driven Development** with
 2. `specify` — what and why ([done](specs/001-cms-content-sync/spec.md))
 3. `clarify` — resolve ambiguities ([done](specs/001-cms-content-sync/spec.md#clarifications))
 4. `plan` — architecture, data model, contracts ([done](specs/001-cms-content-sync/plan.md))
-5. `tasks` — ordered, testable work items
+5. `tasks` — ordered, testable work items ([done](specs/001-cms-content-sync/tasks.md))
 6. `analyze` — cross-artifact consistency check
 7. `implement` — test-first implementation
 
