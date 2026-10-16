@@ -67,4 +67,17 @@ return [
         'retention_days' => (int) env('CMS_BATCH_RETENTION_DAYS', 30),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Performance checks
+    |--------------------------------------------------------------------------
+    |
+    | Rows created by the PerformanceSeeder (used by tests/Performance).
+    |
+    */
+
+    'performance' => [
+        'seed_rows' => (int) env('PERF_SEED_ROWS', 100000),
+    ],
+
 ];

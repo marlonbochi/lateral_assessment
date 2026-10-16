@@ -166,7 +166,8 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    oneOf:
+                    # anyOf, not oneOf: an administrator item (AdminContent) is also a valid Content.
+                    anyOf:
                       - $ref: '#/components/schemas/Content'
                       - $ref: '#/components/schemas/AdminContent'
         '401': { $ref: '#/components/responses/Unauthenticated' }
@@ -491,7 +492,8 @@ components:
         data:
           type: array
           items:
-            oneOf:
+            # anyOf, not oneOf: an administrator item (AdminContent) is also a valid Content.
+            anyOf:
               - $ref: '#/components/schemas/Content'
               - $ref: '#/components/schemas/AdminContent'
         meta: { $ref: '#/components/schemas/CursorMeta' }
@@ -504,7 +506,8 @@ components:
         data:
           type: array
           items:
-            oneOf:
+            # anyOf, not oneOf: an administrator item (AdminContent) is also a valid Content.
+            anyOf:
               - $ref: '#/components/schemas/Content'
               - $ref: '#/components/schemas/AdminContent'
         meta: { $ref: '#/components/schemas/NumberedMeta' }

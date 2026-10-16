@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
 
-use function Pest\Laravel\withHeaders;
+use function Pest\Laravel\postJson;
 use function Pest\Laravel\withToken;
 
 use Symfony\Component\HttpFoundation\Response;
@@ -27,7 +27,7 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature');
-pest()->extend(TestCase::class)->in('Concurrency', 'Performance', 'Database');
+pest()->extend(TestCase::class)->in('Concurrency', 'Performance', 'Database', 'Arch');
 
 /*
 |--------------------------------------------------------------------------
@@ -73,7 +73,9 @@ function actingAsRole(Role $role): User
  */
 function postBatch(array $events): TestResponse
 {
-    return withHeaders(cmsAuthHeaders())->postJson('/cms/events', $events);
+    // Headers are passed per request (not withHeaders(), which persists for
+    // the rest of the test and would authenticate later requests too).
+    return postJson('/cms/events', $events, cmsAuthHeaders());
 }
 
 /**
@@ -85,6 +87,9 @@ function drainQueue(): void
         'connection' => 'database',
         '--queue' => (string) config('cms.queue.name'),
         '--stop-when-empty' => true,
+        // Without this the worker sleeps 3 s (the default) before noticing the
+        // queue is empty, which would dominate every test that drains it.
+        '--sleep' => 0,
     ]);
 }
 

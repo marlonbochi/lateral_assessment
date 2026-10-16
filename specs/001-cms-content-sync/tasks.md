@@ -939,7 +939,7 @@ and verify `processed` and correct content.
 **Purpose**: Architecture guarantees, performance evidence, contract conformance, and the
 deliverable documentation.
 
-- [ ] T089 [P] Write `tests/Arch/ArchitectureTest.php` (Pest arch):
+- [X] T089 [P] Write `tests/Arch/ArchitectureTest.php` (Pest arch):
   - `app` uses strict types.
   - `App\Domain` does not use `Illuminate` or `App\Models`.
   - Controllers do not use `Illuminate\Support\Facades\DB`.
@@ -950,10 +950,10 @@ deliverable documentation.
     Pest arch expectations work on class/namespace dependencies, not method calls, so
     implement this one as a plain Pest test in the same file: it scans `app/**/*.php` for
     `->isAdmin(` and allows matches only in `app/Providers/AppServiceProvider.php`.
-- [ ] T090 [P] Create `database/seeders/DemoSeeder.php` (admin + user accounts, ~30 contents in
+- [X] T090 [P] Create `database/seeders/DemoSeeder.php` (admin + user accounts, ~30 contents in
   mixed states; prints nothing secret) and `database/seeders/PerformanceSeeder.php` (100k
   contents via chunked `insert`, realistic status mix 80/15/5 and 2% disabled).
-- [ ] T091 Write `tests/Performance/PerformanceTest.php` (Pest group `performance`, outside
+- [X] T091 Write `tests/Performance/PerformanceTest.php` (Pest group `performance`, outside
   `Feature/` and excluded from the default run, executed by the CI step in T012 and by
   `make perf`):
   - It seeds itself: the first test checks `Content::count()` and runs `PerformanceSeeder`
@@ -971,13 +971,20 @@ deliverable documentation.
     in < 5 s (SC-005, both halves).
   - Write the measured p95 and timings to `storage/logs/performance.json`, so T097 can copy
     the 100k-row numbers into the README.
-- [ ] T092 [P] Write `tests/Feature/Contract/OpenApiConformanceTest.php`:
+  - Implementation note: measuring exposed that `queue:work --stop-when-empty` sleeps 3 s
+    before stopping; `drainQueue()` now passes `--sleep=0` (the suite dropped from 44 s to
+    26 s), and the compose worker polls with `--sleep=1` (≤ ~1 s pick-up latency).
+- [X] T092 [P] Write `tests/Feature/Contract/OpenApiConformanceTest.php`:
   - Add the dev dependency `osteel/openapi-httpfoundation-testing` (verify that it supports
     OpenAPI 3.1; if it doesn't, implement a small recursive "required keys and types" asserter
     in `tests/Support/OpenApiAsserter.php` that reads `contracts/openapi.yaml` with
     `symfony/yaml`).
   - Validate the responses of every endpoint (2xx and the main 4xx) against
     `specs/001-cms-content-sync/contracts/openapi.yaml`.
+  - Implementation note: the existing PHP validators only support OpenAPI 3.0, so the fallback
+    `tests/Support/OpenApiAsserter.php` was implemented. It found a contract defect: `oneOf`
+    between `Content` and `AdminContent` can never match an administrator item (it is valid for
+    both), so those unions became `anyOf`.
 - [ ] T093 [P] Write `docs/architecture.md`: data model summary with the state machines,
   ingestion/processing sequence diagram (Mermaid), concurrency strategy, auth model,
   pagination, error format, observability, and a decisions table with links to `research.md`

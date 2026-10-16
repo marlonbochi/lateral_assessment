@@ -40,7 +40,9 @@ services:
 
   worker:
     <<: *php
-    command: ["php", "artisan", "queue:work", "database", "--queue=cms-events", "--tries=5", "--max-time=3600"]
+    # --sleep=1: an idle worker polls the (indexed) jobs table every second, so a
+    # batch is picked up at most ~1 s after it is acknowledged.
+    command: ["php", "artisan", "queue:work", "database", "--queue=cms-events", "--tries=5", "--sleep=1", "--max-time=3600"]
 
   scheduler:
     <<: *php
