@@ -745,7 +745,7 @@ sees it again.
 
 ### Tests for User Story 3 ⚠️ write first, they must fail
 
-- [ ] T066 [P] [US3] Write `tests/Feature/Api/AdminContentVisibilityTest.php`:
+- [X] T066 [P] [US3] Write `tests/Feature/Api/AdminContentVisibilityTest.php`:
   - The admin list includes published, unpublished and disabled items, and excludes deleted
     ones.
   - Filters `?status=unpublished` and `?disabled=true` (combined too).
@@ -755,7 +755,7 @@ sees it again.
   - Admin `show` of an unpublished item → 200, of a deleted item → 404.
 
   Also append the admin rows for these endpoints to the T060 dataset.
-- [ ] T067 [P] [US3] Write `tests/Feature/Api/LocalOverrideTest.php`:
+- [X] T067 [P] [US3] Write `tests/Feature/Api/LocalOverrideTest.php`:
   - `PUT /contents/{id}/disabled` → 200, user list hides the item, admin still sees it, CMS
     columns are byte-identical before and after.
   - A second PUT is idempotent (same `changed_at`).
@@ -771,25 +771,25 @@ sees it again.
 
 ### Implementation for User Story 3
 
-- [ ] T068 [US3] Implement `app/Actions/Content/SetContentDisabled.php::handle(Content $content,
+- [X] T068 [US3] Implement `app/Actions/Content/SetContentDisabled.php::handle(Content $content,
   bool $disabled, User $actor): Content`:
   - Inside a transaction, `lockForUpdate`.
   - No-op if unchanged.
   - Otherwise write only `is_disabled`, `disabled_at` (now or null) and `disabled_by`.
-- [ ] T069 [US3] Implement `app/Http/Controllers/Api/V1/ContentDisabledController.php`
+- [X] T069 [US3] Implement `app/Http/Controllers/Api/V1/ContentDisabledController.php`
   (`update` → disable, `destroy` → enable). Resolve via
   `Content::visibleTo($admin)->where('cms_id', …)->firstOrFail()`, then call
   `$this->authorize('manageOverride', $content)` (`ContentPolicy`), and return the admin
   `ContentResource`. Add the routes `PUT|DELETE /contents/{contentId}/disabled` with
   `role:admin` in `routes/api.php`.
-- [ ] T070 [US3] Extend `ContentResource` with `mergeWhen($request->user()->can('admin'), …)` for
+- [X] T070 [US3] Extend `ContentResource` with `mergeWhen($request->user()->can('admin'), …)` for
   `status` and `local_override` (`disabled`, `changed_at` ← `disabled_at`, `changed_by` ←
   `disabled_by`).
-- [ ] T071 [US3] Extend `ListContentsRequest` with `status` (`in:published,unpublished`) and
+- [X] T071 [US3] Extend `ListContentsRequest` with `status` (`in:published,unpublished`) and
   `disabled` (`boolean`). When either is present, `authorize()` returns
   `Gate::allows('filter-contents')`, so a non-admin gets 403.
   Apply the filters in `ContentController::index`.
-- [ ] T072 [US3] Run the US3 suite plus lint and commit.
+- [X] T072 [US3] Run the US3 suite plus lint and commit.
 
 **Checkpoint**: Local overrides are complete and independent of CMS state.
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\ContentController;
+use App\Http\Controllers\Api\V1\ContentDisabledController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,4 +21,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(functio
 
     Route::get('contents', [ContentController::class, 'index'])->name('contents.index');
     Route::get('contents/{contentId}', [ContentController::class, 'show'])->name('contents.show');
+
+    // Local override (administrators only): PUT disables, DELETE re-enables.
+    Route::middleware('role:admin')->group(function (): void {
+        Route::put('contents/{contentId}/disabled', [ContentDisabledController::class, 'update'])->name('contents.disabled.update');
+        Route::delete('contents/{contentId}/disabled', [ContentDisabledController::class, 'destroy'])->name('contents.disabled.destroy');
+    });
 });

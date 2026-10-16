@@ -16,7 +16,11 @@ final class ContentController extends Controller
 {
     public function index(ListContentsRequest $request): ContentCollection
     {
-        $query = Content::query()->visibleTo($this->consumer($request))->feedOrder();
+        $query = Content::query()
+            ->visibleTo($this->consumer($request))
+            ->when($request->statusFilter(), fn ($q, $status) => $q->where('status', $status->value))
+            ->when($request->disabledFilter() !== null, fn ($q) => $q->where('is_disabled', $request->disabledFilter()))
+            ->feedOrder();
 
         $paginator = $request->usesPageNumbers()
             ? $query->paginate($request->perPage())

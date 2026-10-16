@@ -39,6 +39,10 @@ function accessMatrix(): array
         ['POST', '/cms/events', [401, 202, 401, 401]],
         ['GET', '/api/v1/contents', [401, 401, 200, 200]],
         ['GET', '/api/v1/contents/content-1', [401, 401, 200, 200]],
+        // US3: administrator filters and local overrides.
+        ['GET', '/api/v1/contents?status=unpublished', [401, 401, 403, 200]],
+        ['PUT', '/api/v1/contents/content-1/disabled', [401, 401, 403, 200]],
+        ['DELETE', '/api/v1/contents/content-1/disabled', [401, 401, 403, 200]],
     ];
 
     foreach ($endpoints as [$method, $uri, $statuses]) {

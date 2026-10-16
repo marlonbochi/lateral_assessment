@@ -57,6 +57,9 @@ function actingAsRole(Role $role): User
     $user = User::factory()->create(['role' => $role]);
     $token = $user->createToken('test')->plainTextToken;
 
+    // The application is reused across requests within a test and guards cache
+    // the user they resolved: forget them so the new token is authenticated.
+    app('auth')->forgetGuards();
     withToken($token);
 
     return $user;
