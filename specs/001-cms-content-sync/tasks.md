@@ -149,16 +149,17 @@ PostgreSQL in Docker and is checked automatically.
        - Service `postgres:18` with healthcheck; create `cms_sync_test`.
        - `php artisan migrate --env=testing`.
        - `vendor/bin/pest --parallel --coverage` (pcov). No `--min` yet: T096 adds the 85%
-         gate once the suite exists, so the Phase 1 checkpoint (zero tests) stays green.
+         gate once the suite exists, so the Phase 1 checkpoint (smoke test only) stays green.
        - `PERF_SEED_ROWS=20000 vendor/bin/pest tests/Performance` (serial; the tests seed
          themselves, see T091). Make this step conditional on
          `hashFiles('tests/Performance/**') != ''` until T091 exists.
     4. `openapi`: `npx @redocly/cli@1 lint specs/001-cms-content-sync/contracts/openapi.yaml`.
     5. `docker`: `docker build --target app -f docker/php/Dockerfile .` (no push).
 - [ ] T013 Boot the stack from scratch with `make setup`, confirm that `GET /up` returns 200
-  through nginx on port 8080, and commit the Phase 1 result.
+  through nginx on port 8080, add the smoke test `tests/Feature/HealthTest.php` (`GET /up` →
+  200) so the suite is never empty, and commit the Phase 1 result.
 
-**Checkpoint**: `make up`, `make lint` and `make test` (with zero tests) work, and CI is green
+**Checkpoint**: `make setup`, `make lint` and `make test` (one smoke test) work, and CI is green
 on GitHub.
 
 ---
@@ -185,8 +186,12 @@ every story.
     - `uses(TestCase::class)->in('Concurrency', 'Performance', 'Database')`: no
       `RefreshDatabase`. These files choose `DatabaseTruncation` / `DatabaseMigrations`
       themselves, because they need committed data or real migration runs.
-    - `phpunit.xml` defines the testsuites `Unit`, `Feature`, `Database` and `Concurrency`, and
-      `Performance` is excluded from the default run.
+    - `phpunit.xml` defines the testsuites `Unit`, `Feature`, `Database` and `Concurrency`.
+      `tests/Performance` is excluded from the default run **only by not being listed in any
+      testsuite**. Never exclude it with `<groups><exclude>`, because that would also filter
+      the tests out when the directory is run explicitly, so `pest tests/Performance` would
+      silently run zero tests. Set `failOnEmptyTestSuite="true"` in `phpunit.xml`, so an
+      explicit run that finds no tests fails loudly.
     - Helpers:
       - `cmsAuthHeaders(?string $user = null, ?string $pass = null): array`
       - `actingAsRole(Role $role): User` (creates a user and a real Sanctum token, returns
@@ -194,9 +199,11 @@ every story.
       - `postBatch(array $events): TestResponse`
       - `drainQueue(): void` (runs `Artisan::call('queue:work', ['connection' => 'database',
         '--queue' => 'cms-events', '--stop-when-empty' => true])`)
-      - `cmsEvent(string $type, string $id, int $version, ?array $payload = null, string $ts =
-        '2026-01-01T10:00:00Z'): array` (named `cmsEvent`, not `event`, to avoid redeclaring
-        Laravel's global `event()` helper)
+      - `cmsEvent(string $type, string $id, int $version, array|stdClass|null $payload = null,
+        string $ts = '2026-01-01T10:00:00Z'): array` (named `cmsEvent`, not `event`, to avoid
+        redeclaring Laravel's global `event()` helper). An empty PHP array is encoded as a JSON
+        **list** `[]`, so tests that need an empty object MUST pass `(object) []` (T032, T036,
+        T051).
 - [ ] T015 [P] Create the backed string enums:
   - `app/Enums/Role.php`: `User = 'user'`, `Admin = 'admin'`.
   - `app/Enums/ContentStatus.php`: `Published = 'published'`, `Unpublished = 'unpublished'`,
@@ -313,6 +320,9 @@ every story.
     - `cms-webhook`: per IP, `config('cms.webhook.rate_limit_per_minute')`.
     - `api`: per token id, `config('cms.api.rate_limit_per_minute')`.
   - Disable `statefulApi`.
+  - Add `use Illuminate\Foundation\Auth\Access\AuthorizesRequests;` to
+    `app/Http/Controllers/Controller.php`. Since Laravel 11 the base controller is empty, and
+    T069/T085 rely on `$this->authorize()`.
 - [ ] T025 Configure Sanctum in `config/sanctum.php`:
   - `'stateful' => []`, `'guard' => []`
   - `'expiration' => env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 129600)`
@@ -391,8 +401,9 @@ ordered, version-correct batch processing with tombstones and concurrency safety
 
   Valid credentials → `202`.
 - [ ] T032 [P] [US1] Write `tests/Feature/Webhook/BatchValidationTest.php` as a dataset of
-  invalid batches. Each returns `422`, `errors` keys use the `events.{i}.{field}` path, and
-  zero rows exist in `event_batches` and `jobs`:
+  invalid batches. Each returns `422`, and zero rows exist in `event_batches` and `jobs`.
+  Batch-level errors (empty list, more than 100 events, JSON object root, malformed JSON) use
+  the key `events`; event-level errors use `events.{i}.{field}`:
   - empty list
   - 101 events
   - JSON object root
@@ -539,7 +550,8 @@ ordered, version-correct batch processing with tombstones and concurrency safety
 - [ ] T044 [US1] Implement the invokable `app/Http/Controllers/Cms/EventBatchController.php`
   (`StoreEventBatchRequest` → `AcceptEventBatch` → `202` JSON `{data: {batch_id, status,
   event_count, received_at}}`). Register the route `POST /cms/events` in `routes/cms.php` with
-  middleware `['auth.cms', EnsureJsonBody::class, 'throttle:cms-webhook']`.
+  middleware `['auth.cms', EnsureJsonBody::class]`. `throttle:cms-webhook` is applied once,
+  at the route-file level in T024; don't repeat it here.
 - [ ] T045 [US1] Implement `app/Actions/Cms/ProcessEventBatch.php::handle(EventBatch $batch):
   BatchResult` in `DB::transaction(..., attempts: 3)`:
   1. Re-select the batch `lockForUpdate()` and return early if it is `processed`.
@@ -613,8 +625,11 @@ token, and assert what is visible, the response shape, and pagination.
 
 ### Implementation for User Story 2
 
-- [ ] T052 [US2] Add `scopeVisibleTo(Builder $q, User $user)` to `app/Models/Content.php`
-  (user: `status = 'published' AND is_disabled = false`; admin: `status <> 'deleted'`) and
+- [ ] T052 [US2] Add `scopeVisibleTo(Builder $q, User $user)` to `app/Models/Content.php`.
+  It branches on `$user->can('admin')` (the gate from T062 is the single source of role truth,
+  constitution Principle II): users get `status = 'published' AND is_disabled = false`, admins
+  get `status <> 'deleted'`. Until T062 lands, define the `admin` gate minimally in
+  `AppServiceProvider` as part of this task. Also add
   `scopeFeedOrder` (`orderByDesc('synced_at')->orderByDesc('cms_id')`).
 - [ ] T053 [US2] Implement `app/Http/Requests/Api/V1/ListContentsRequest.php`:
   - Rules: `per_page` → `integer|between:1,100`; `cursor` → `string|prohibits:page`; `page` →
@@ -670,7 +685,7 @@ gating that never leaks whether a resource exists.
     admin.
   - Initial rows cover `POST /cms/events`, `GET /api/v1/contents` and
     `GET /api/v1/contents/{id}`.
-  - Later phases append rows (T066, T081).
+  - Later phases append rows (T066, T067, T081).
 - [ ] T061 [P] [US4] Write `tests/Feature/Security/NoCmsWritesTest.php`:
   - `POST`/`PATCH`/`PUT`/`DELETE` on `/api/v1/contents` and `/api/v1/contents/{id}` → `405`
     problem+json, with the DB unchanged.
@@ -681,7 +696,11 @@ gating that never leaks whether a resource exists.
 
 - [ ] T062 [US4] Define the authorization rules in Laravel policies and gates (constitution
   Principle II: authorization goes through policies/gates):
-  - Gate `admin` in `AppServiceProvider::boot()` → `$user->role === Role::Admin`.
+  - Gate `admin` in `AppServiceProvider::boot()` → `$user->isAdmin() ? Response::allow() :
+    Response::deny('This action requires the admin role.')`. The deny message matches the
+    contract's 403 example. `User::isAdmin()` may be called **only** from this gate; every
+    other role decision uses `->can('admin')` / `Gate::allows('admin')` (T052, T070). T089
+    enforces this.
   - Gate `filter-contents` → admin only (used by T071).
   - `app/Policies/ContentPolicy.php`:
     - `viewAny` and `view` → true for any authenticated consumer (row visibility is enforced
@@ -740,6 +759,9 @@ sees it again.
   - User on an existing **and** an unknown id → 403, with bodies identical except `instance`.
   - CMS credentials → 401.
 
+  Also append the `PUT` and `DELETE /api/v1/contents/{id}/disabled` rows (anonymous, cms, user,
+  admin) to the T060 dataset.
+
 ### Implementation for User Story 3
 
 - [ ] T068 [US3] Implement `app/Actions/Content/SetContentDisabled.php::handle(Content $content,
@@ -753,7 +775,7 @@ sees it again.
   `$this->authorize('manageOverride', $content)` (`ContentPolicy`), and return the admin
   `ContentResource`. Add the routes `PUT|DELETE /contents/{contentId}/disabled` with
   `role:admin` in `routes/api.php`.
-- [ ] T070 [US3] Extend `ContentResource` with `mergeWhen($request->user()->isAdmin(), …)` for
+- [ ] T070 [US3] Extend `ContentResource` with `mergeWhen($request->user()->can('admin'), …)` for
   `status` and `local_override` (`disabled`, `changed_at` ← `disabled_at`, `changed_by` ←
   `disabled_by`).
 - [ ] T071 [US3] Extend `ListContentsRequest` with `status` (`in:published,unpublished`) and
@@ -913,6 +935,10 @@ deliverable documentation.
   - `App\Enums` are enums.
   - No `dd`, `dump` or `var_dump` anywhere.
   - Actions are final classes.
+  - `isAdmin()` is called only from `App\Providers\AppServiceProvider` (the `admin` gate).
+    Pest arch expectations work on class/namespace dependencies, not method calls, so
+    implement this one as a plain Pest test in the same file: it scans `app/**/*.php` for
+    `->isAdmin(` and allows matches only in `app/Providers/AppServiceProvider.php`.
 - [ ] T090 [P] Create `database/seeders/DemoSeeder.php` (admin + user accounts, ~30 contents in
   mixed states; prints nothing secret) and `database/seeders/PerformanceSeeder.php` (100k
   contents via chunked `insert`, realistic status mix 80/15/5 and 2% disabled).
@@ -960,8 +986,9 @@ deliverable documentation.
   - how it was built with Spec Kit
 - [ ] T095 Security hardening pass:
   - `APP_DEBUG=false` and `APP_ENV=production` in the `app` image target.
-  - Confirm that `.env` is ignored and no secret is in git history (`git log -p | grep -i
-    password`).
+  - Confirm that `.env` is ignored and no secret is in git history, with
+    `gitleaks detect --redact` (run locally, and add a `secrets` job to
+    `.github/workflows/ci.yml` using `gitleaks/gitleaks-action`).
   - `composer audit` is clean.
   - Run the `/security-review` skill on the branch and address its findings.
 - [ ] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
@@ -971,7 +998,8 @@ deliverable documentation.
   against the Docker stack, and fix any discrepancy between the docs, the contract and the
   behaviour. Run `make perf` (self-seeding 100k rows, `tests/Performance`) and
   record the measured ack/processing times and p95 latencies in the README.
-- [ ] T098 Final constitution compliance review: tick the README roadmap, update `CLAUDE.md` if
+- [ ] T098 Final constitution compliance review: confirm that the T060 access matrix has rows for
+  all 8 endpoints × 4 actors, tick the README roadmap, update `CLAUDE.md` if
   any structure changed, make sure CI is green on `main`, and tag `v1.0.0`.
 
 ---
