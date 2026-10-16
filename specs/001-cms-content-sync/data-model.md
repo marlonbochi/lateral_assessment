@@ -101,6 +101,21 @@ enabled  ── DELETE /contents/{id}/disabled ──► enabled  (no-op, idempo
 Only allowed while `status <> 'deleted'` (otherwise `404`). The override survives every CMS
 event, including delete and re-creation.
 
+### Column → API field mapping
+
+| Column | API field (`ContentResource`) | Visible to |
+|---|---|---|
+| `cms_id` | `id` | user, admin |
+| `version` | `version` | user, admin |
+| `payload` | `content` | user, admin |
+| `cms_timestamp` | `cms_updated_at` | user, admin |
+| `synced_at` | `synced_at` | user, admin |
+| `status` | `status` | admin |
+| `is_disabled` | `local_override.disabled` | admin |
+| `disabled_at` | `local_override.changed_at` | admin |
+| `disabled_by` | `local_override.changed_by` | admin |
+| `id`, `created_at`, `updated_at` | — (never exposed) | — |
+
 ---
 
 ## 2. `event_batches` — durable inbox of acknowledged deliveries (Eloquent: `EventBatch`)
@@ -109,7 +124,7 @@ event, including delete and re-creation.
 |---|---|---|---|---|
 | `id` | `uuid` (v7, time-ordered) | no | | Returned to the CMS as `batch_id` |
 | `status` | `varchar(16)` | no | `'pending'` | `pending` \| `processed` \| `failed` (`BatchStatus` enum) |
-| `events` | `jsonb` | no | | Ordered list of events exactly as received |
+| `events` | `jsonb` | no | | Ordered list of events exactly as received (object-preserving `JsonObjectList` cast — never the `array` cast, which turns `{}` into `[]`) |
 | `event_count` | `smallint` | no | | 1–100 |
 | `attempts` | `smallint` | no | `0` | Processing attempts in the current cycle |
 | `applied_count` | `smallint` | yes | | Set when processed |

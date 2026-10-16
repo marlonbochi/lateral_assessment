@@ -54,7 +54,8 @@ payloads or credentials in logs; tests never touch the dev database; every endpo
 authenticated (except `/up`)
 
 **Scale/Scope**: About 100k content items, batches of ≤ 100 events, a single CMS sender, tens of
-consumer accounts; 8 HTTP endpoints, 6 artisan commands
+consumer accounts; 8 HTTP endpoints (+ `/up`), 6 public artisan commands (+ 1 hidden
+test-support command)
 
 ## Constitution Check
 
@@ -124,7 +125,7 @@ app/
 │   ├── EventBatch.php              # HasUuids (v7), MassPrunable
 │   └── User.php                    # HasApiTokens, role cast
 ├── Policies/
-│   ├── ContentPolicy.php
+│   ├── ContentPolicy.php           # + `admin` / `filter-contents` gates in AppServiceProvider
 │   └── EventBatchPolicy.php
 ├── Http/
 │   ├── Controllers/
@@ -135,25 +136,38 @@ app/
 │   │       └── Admin/EventBatchController.php      # index, show, retry
 │   ├── Middleware/
 │   │   ├── AuthenticateCms.php     # HTTP Basic vs env, hash_equals, fail closed
-│   │   └── EnsureRole.php          # role gate before route-model binding (no enumeration)
+│   │   ├── EnsureJsonBody.php      # 415 non-JSON, 413 over the size limit
+│   │   ├── EnsureRole.php          # thin adapter over the `admin` gate, runs before route-model binding
+│   │   └── AssignRequestId.php     # X-Request-Id correlation for logs
 │   ├── Requests/
-│   │   ├── Cms/StoreEventBatchRequest.php
+│   │   ├── Cms/StoreEventBatchRequest.php   # assoc decode for rules + object decode for payloads
 │   │   └── Api/V1/{ListContentsRequest,ListEventBatchesRequest}.php
 │   └── Resources/
 │       ├── ContentResource.php     # role-aware fields
 │       ├── EventBatchResource.php
+│       ├── EventBatchDetailResource.php     # + event summary, never payloads
 │       └── PaginatedCollection.php # cursor/page meta shaping
+├── Rules/
+│   ├── StrictPositiveInteger.php
+│   ├── Rfc3339DateTime.php
+│   └── JsonObject.php
+├── Casts/
+│   ├── JsonObjectPayload.php       # contents.payload, keeps {} vs []
+│   └── JsonObjectList.php          # event_batches.events, keeps {} vs []
 ├── Exceptions/
-│   └── ProblemDetailsRenderer.php  # RFC 9457 rendering for api/* and cms/*
+│   ├── ProblemDetailsRenderer.php  # RFC 9457 rendering for api/* and cms/*
+│   └── BatchNotRetryableException.php   # → 409
 ├── Console/Commands/
 │   ├── CreateConsumer.php          # consumer:create
 │   ├── IssueConsumerToken.php      # consumer:token
 │   ├── RevokeConsumerToken.php     # consumer:revoke
 │   ├── ListFailedBatches.php       # cms:batches:failed
 │   ├── RetryFailedBatches.php      # cms:batches:retry {id|--all}
-│   └── DiscardFailedBatch.php      # cms:batches:discard {id}
+│   ├── DiscardFailedBatch.php      # cms:batches:discard {id}
+│   └── ProcessBatchOnce.php        # cms:batches:process {id} (hidden, concurrency tests)
 └── Support/
-    └── Json/JsonPayload.php        # object-preserving decode/encode (research R8)
+    ├── Json/JsonPayload.php        # object-preserving decode/encode (research R8)
+    └── Logging/SafeError.php       # sanitized error summaries for logs / last_error
 
 bootstrap/app.php                   # routes, middleware aliases, rate limiters, exception rendering
 config/cms.php                      # webhook credentials, limits, queue connection, retention
@@ -169,12 +183,17 @@ tests/
 ├── TestCase.php                    # aborts unless DB name ends with _test
 ├── Arch/ArchitectureTest.php
 ├── Unit/Domain/Cms/                # EventPrecedenceTest (datasets + permutation property test)
+├── Unit/Support/                   # JsonPayloadTest
+├── Unit/Policies/                  # PolicyTest
 ├── Feature/Webhook/                # auth, validation, acceptance, atomic hand-off
 ├── Feature/Processing/             # duplicates, out-of-order, edge case, delete/tombstone, re-create, retries, concurrency
-├── Feature/Api/                    # access matrix, visibility, overrides, pagination, problem details
+├── Feature/Api/                    # visibility, overrides, pagination, resource shape
 ├── Feature/Admin/                  # batch list/show/retry
 ├── Feature/Console/                # consumer & batch commands
-└── Feature/Observability/          # log content & hygiene
+├── Feature/Observability/          # log content & hygiene
+├── Feature/Security/               # actor separation, token validity, access matrix, rate limits
+├── Feature/Contract/               # OpenAPI conformance
+└── Feature/Performance/            # query plans, p95 latency, ack/processing time (group: performance)
 
 docker/
 ├── php/Dockerfile                  # multi-stage: composer deps → php:8.4-fpm-alpine
@@ -182,7 +201,7 @@ docker/
 ├── nginx/default.conf
 └── postgres/init/01-create-test-db.sql
 docker-compose.yml                  # nginx, app, worker, scheduler, postgres (healthchecks)
-Makefile                            # up, down, migrate, test, lint, ci, shell
+Makefile                            # setup (one-command bootstrap), up, down, migrate, test, lint, ci, perf, shell
 .github/workflows/ci.yml            # lint, static-analysis, tests (8.3/8.4 + postgres:18), docker build
 docs/
 ├── architecture.md                 # data model, processing flow, decisions, trade-offs, limitations

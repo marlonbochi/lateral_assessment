@@ -128,6 +128,10 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
   `stdClass`) for validation of shape, then stores each payload as `jsonb` via an encoder that
   preserves `{}` vs `[]`. Validation requires `payload` to be a JSON **object** (not a list) for
   publish/unpublish.
+- **Where it applies**: everywhere a payload crosses PHP: the request (object decode kept
+  alongside the associative decode used by the validator, which cannot traverse `stdClass`),
+  the inbox (`event_batches.events` uses an object-preserving list cast, never `array`), the
+  worker (builds `CmsEvent` from objects), and `contents.payload` (object-preserving cast).
 - **Rationale**: PHP's associative decoding turns `{}` into `[]`, making an empty object
   indistinguishable from an empty list and silently changing CMS data on round-trip. Big integers
   become strings and therefore fail the integer check instead of overflowing to floats.
@@ -182,6 +186,9 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
   `404` as unknown ones (FR-024). Admin-only operations (disable/enable, filters, batch
   management) are checked with a role gate **before** route-model binding resolves the content,
   so a regular user always receives `403` regardless of whether the id exists (no enumeration).
+- **Mechanism**: the role checks live only in gates (`admin`, `filter-contents`) and policies.
+  The `EnsureRole` middleware is a thin adapter that calls `Gate::authorize()` early, and the
+  controllers call the policies for each resource.
 - **Rationale**: Authorization lives server-side in one place per concern and is testable via
   a Pest dataset covering the whole actor × endpoint matrix (SC-004).
 - **Alternatives considered**: separate `/admin/contents` namespace (rejected by team decision:
@@ -274,7 +281,10 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
     visibility, overrides, pagination, problem details, logging hygiene, failure injection and
     retry/recovery.
   - **Concurrency** test: two DB connections processing conflicting batches in parallel
-    processes to prove lock ordering/no lost updates.
+    processes to prove lock ordering/no lost updates. It uses `DatabaseTruncation` (as do the
+    performance tests), because other processes only see committed data.
+  - **Performance** group (opt-in, run in CI with a 20k seed and locally with 100k via
+    `make perf`): query plans, p95 latency, and ack/processing times.
   - **Arch** tests: controllers don't touch the DB directly, domain layer has no Laravel deps,
     `declare(strict_types=1)` everywhere.
   - Tests use a **dedicated `cms_sync_test` database** (`phpunit.xml` + `.env.testing`); a guard in

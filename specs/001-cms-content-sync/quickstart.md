@@ -15,10 +15,12 @@ This guide proves the feature works end to end. Commands assume the repository r
 ## 1. Boot the environment
 
 ```bash
-cp .env.example .env            # then set CMS_WEBHOOK_USERNAME / CMS_WEBHOOK_PASSWORD
-make up                         # builds the image, starts nginx, app, worker, scheduler, postgres
-make migrate                    # runs migrations on the development database (cms_sync)
+make setup                      # creates .env from .env.example if missing, builds, starts nginx,
+                                # app, worker, scheduler, postgres, migrates cms_sync, seeds demo data
 ```
+
+Then set real values for `CMS_WEBHOOK_USERNAME` / `CMS_WEBHOOK_PASSWORD` in `.env` and run
+`make up` to apply them.
 
 Expected: `curl -s -o /dev/null -w '%{http_code}' localhost:8080/up` prints `200`.
 
@@ -80,9 +82,9 @@ the manual table above is for reviewers who want to see the behaviour by hand.
 ## 5. Performance spot-check (SC-005 / SC-006)
 
 ```bash
-docker compose exec app php artisan db:seed --class=PerformanceSeeder   # 100k content rows
-docker compose exec app php artisan tinker --execute="dump(DB::select('EXPLAIN ANALYZE ...'))"
+make perf        # seeds 100k content rows into the test database and runs the performance group
 ```
 
 Expected: listing queries use `contents_user_feed_idx` / `contents_admin_feed_idx` (index scan,
-no sort node); a 100-event batch is acknowledged in < 300 ms and processed in < 5 s.
+no sort node); list/detail p95 < 300 ms; a 100-event batch is acknowledged in < 300 ms and
+processed in < 5 s. Measured numbers are written to `storage/logs/performance.json`.
