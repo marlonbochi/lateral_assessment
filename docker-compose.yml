@@ -6,7 +6,9 @@ x-php: &php
     dockerfile: docker/php/Dockerfile
     target: dev
   image: cms-content-sync:dev
-  env_file: .env
+  # No env_file on purpose: Laravel reads the bind-mounted .env / .env.testing
+  # itself. Exporting .env as real environment variables would override
+  # .env.testing and point the test suite at the development database.
   volumes:
     - .:/var/www/html
   depends_on:

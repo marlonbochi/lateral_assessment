@@ -32,7 +32,7 @@ content without touching CMS-managed data.
 | Runtime         | Docker Compose                                           |
 | Auth            | HTTP Basic (CMS), Laravel Sanctum bearer tokens (consumers) |
 | Queue           | Laravel database queue on PostgreSQL (transactional inbox) |
-| Testing         | Pest 5 (unit, feature, concurrency, architecture)        |
+| Testing         | Pest 4 (unit, feature, concurrency, architecture)        |
 | Quality gates   | Pint (style), Larastan (static analysis)                 |
 | CI              | GitHub Actions                                           |
 

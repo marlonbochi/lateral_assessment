@@ -4,31 +4,46 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+/**
+ * A consumer account of the REST API. Authenticates only with operator-issued
+ * Sanctum bearer tokens (no password, no sessions).
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property Role $role
+ */
+#[Fillable(['name', 'email', 'role'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory;
 
     /**
-     * Get the attributes that should be cast.
-     *
+     * Raw role check. Call it only from the `admin` gate; everything else
+     * must ask the gate (`$user->can('admin')`).
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === Role::Admin;
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'role' => Role::class,
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
         ];
     }
 }

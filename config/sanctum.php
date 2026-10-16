@@ -34,7 +34,8 @@ return [
     |
     */
 
-    'guard' => ['web'],
+    // No session guard fallback: only bearer tokens authenticate API requests.
+    'guard' => [],
 
     /*
     |--------------------------------------------------------------------------
@@ -47,7 +48,7 @@ return [
     |
     */
 
-    'expiration' => null,
+    'expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 129600),
 
     /*
     |--------------------------------------------------------------------------
@@ -62,7 +63,8 @@ return [
     |
     */
 
-    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+    // Prefix lets secret scanners recognise leaked tokens.
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'cms_'),
 
     /*
     |--------------------------------------------------------------------------

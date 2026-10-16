@@ -9,8 +9,14 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
 
 ## R1. Runtime versions and core packages
 
-- **Decision**: PHP 8.4 (composer constraint `^8.3`), Laravel 13.x, Laravel Sanctum 4.x,
-  PostgreSQL 18, Pest 5 (on PHPUnit 13), Larastan 3, Laravel Pint.
+- **Decision**: PHP 8.4 (composer constraint `^8.3`, Composer `config.platform.php = 8.3.0`),
+  Laravel 13.x, Laravel Sanctum 4.x, PostgreSQL 18, Pest 4 (on PHPUnit 12), Larastan 3,
+  Laravel Pint.
+- **Amendment (implementation, 2026-10-16)**: Pest 5 / paratest 7.27 require PHP ≥ 8.4, which
+  made the suite impossible to run on PHP 8.3 (the first CI run failed on the 8.3 matrix).
+  Pest 4.7 has the same API, supports Laravel 13 and PHP ^8.3, so it replaces Pest 5. Pinning
+  the Composer platform to 8.3 guarantees the lock file stays installable on 8.3 (it now
+  resolves Symfony 7.4 instead of 8.x).
 - **Rationale**: Latest stable releases as of 2026-10. Laravel 13 requires PHP ≥ 8.3, which
   matches the challenge's "PHP 8.3+" requirement; developing on 8.4 while declaring `^8.3`
   keeps the code compatible with both. Every package except Pest/Larastan is first-party Laravel.

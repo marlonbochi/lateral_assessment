@@ -10,7 +10,9 @@ international Senior PHP Engineer position.
 
 ## Stack & key design (see `specs/001-cms-content-sync/plan.md` and `research.md`)
 
-- PHP 8.4 (`^8.3`), Laravel 13, Sanctum 4, PostgreSQL 18, Pest 5, Larastan 3, Pint.
+- PHP 8.4 (`^8.3`, Composer platform pinned to 8.3), Laravel 13, Sanctum 4, PostgreSQL 18,
+  Pest 4 (Pest 5 needs PHP 8.4), Larastan 3, Pint. Tests use `Pest\Laravel\*` functions
+  (typed for Larastan), not `$this->`.
 - Docker Compose: nginx + php-fpm `app`, `worker` (queue), `scheduler`, `postgres`.
 - Webhook → transactional inbox (`event_batches` + `jobs` in one transaction) → `202`;
   worker applies batches atomically with sorted `pg_advisory_xact_lock` per content id.

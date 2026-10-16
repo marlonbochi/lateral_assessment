@@ -32,13 +32,13 @@ for every decision and its trade-offs.
 
 **Language/Version**: PHP 8.4 (Composer constraint `^8.3`; CI matrix 8.3 + 8.4)
 
-**Primary Dependencies**: Laravel 13.x, Laravel Sanctum 4.x; dev: Pest 5 (+ Laravel & arch
-plugins), Larastan 3, Laravel Pint
+**Primary Dependencies**: Laravel 13.x, Laravel Sanctum 4.x; dev: Pest 4 (+ Laravel & arch
+plugins), Larastan 3, Laravel Pint (Pest 4 instead of 5 for PHP 8.3 support, see research R1)
 
 **Storage**: PostgreSQL 18 (`jsonb`, partial indexes, CHECK constraints, advisory locks);
 database queue driver and database cache store on the same connection
 
-**Testing**: Pest 5 on PHPUnit 13 — unit, feature/integration against a dedicated
+**Testing**: Pest 4 on PHPUnit 12 — unit, feature/integration against a dedicated
 `cms_sync_test` PostgreSQL database, concurrency, and architecture tests; coverage gate 85%
 
 **Target Platform**: Linux containers (Alpine PHP 8.4-FPM + nginx), Docker Compose locally,

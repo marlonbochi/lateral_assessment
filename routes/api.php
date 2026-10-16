@@ -2,9 +2,18 @@
 
 declare(strict_types=1);
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+/*
+|--------------------------------------------------------------------------
+| Consumer API (v1)
+|--------------------------------------------------------------------------
+|
+| Every route requires a Sanctum bearer token. Visibility is role-aware and
+| decided through the `admin` gate and the policies.
+|
+*/
+
+Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    //
+});

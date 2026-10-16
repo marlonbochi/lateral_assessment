@@ -54,7 +54,9 @@ PostgreSQL in Docker and is checked automatically.
 - [X] T002 Install the API stack:
   - Run `php artisan install:api`. This adds `laravel/sanctum:^4.0`, `routes/api.php` and the
     `personal_access_tokens` migration.
-  - Add the Pest dev dependencies `pestphp/pest:^5.0` and `pestphp/pest-plugin-laravel`, then
+  - Add the Pest dev dependencies `pestphp/pest:^4.7` and `pestphp/pest-plugin-laravel:^4.1`
+    (Pest 5 requires PHP 8.4; see research R1 amendment) with Composer
+    `config.platform.php = 8.3.0`, then
     run `vendor/bin/pest --init` to create `tests/Pest.php`.
   - Delete the skeleton's example tests in `tests/Unit/ExampleTest.php` and
     `tests/Feature/ExampleTest.php`.
@@ -171,7 +173,7 @@ every story.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T014 Create the test harness:
+- [X] T014 Create the test harness:
   - `tests/TestCase.php`: in `setUp()`, throw a `RuntimeException` unless
     `config('database.connections.pgsql.database')` matches `/_test(_test_\d+)?$/`. The optional
     suffix is needed because `--parallel` gives each process its own database
@@ -204,18 +206,18 @@ every story.
         redeclaring Laravel's global `event()` helper). An empty PHP array is encoded as a JSON
         **list** `[]`, so tests that need an empty object MUST pass `(object) []` (T032, T036,
         T051).
-- [ ] T015 [P] Create the backed string enums:
+- [X] T015 [P] Create the backed string enums:
   - `app/Enums/Role.php`: `User = 'user'`, `Admin = 'admin'`.
   - `app/Enums/ContentStatus.php`: `Published = 'published'`, `Unpublished = 'unpublished'`,
     `Deleted = 'deleted'`.
   - `app/Enums/BatchStatus.php`: `Pending = 'pending'`, `Processed = 'processed'`,
     `Failed = 'failed'`.
-- [ ] T016 [P] Create the domain enums (no Illuminate imports):
+- [X] T016 [P] Create the domain enums (no Illuminate imports):
   - `app/Domain/Cms/CmsEventType.php`: `Publish = 'publish'`, `Unpublish = 'unpublish'`,
     `Delete = 'delete'`, with method `targetStatus(): ContentStatus`.
   - `app/Domain/Cms/IgnoreReason.php`: `Duplicate = 'duplicate'`, `Stale = 'stale'`,
     `StaleAfterDelete = 'stale_after_delete'`.
-- [ ] T017 Adapt the users schema and model:
+- [X] T017 Adapt the users schema and model:
   - Edit `database/migrations/0001_01_01_000000_create_users_table.php`:
     - Remove `email_verified_at`, `password` and `remember_token`.
     - Drop the `password_reset_tokens` and `sessions` tables.
@@ -226,7 +228,7 @@ every story.
   - Update `app/Models/User.php`: `HasApiTokens`, `#[Fillable(['name','email','role'])]`
     (or `$fillable`), `role` cast to `Role`, `isAdmin(): bool`.
   - Update `database/factories/UserFactory.php` with states `user()` and `admin()`.
-- [ ] T018 [P] Create migration `database/migrations/2026_10_16_000100_create_contents_table.php`
+- [X] T018 [P] Create migration `database/migrations/2026_10_16_000100_create_contents_table.php`
   per data-model §1:
   - Columns:
     - `id` bigint identity
@@ -253,7 +255,7 @@ every story.
       AND is_disabled = false`
     - `contents_admin_feed_idx` on `(synced_at DESC, cms_id DESC) WHERE status <> 'deleted'`
   - `down()` drops the table.
-- [ ] T019 [P] Create migration
+- [X] T019 [P] Create migration
   `database/migrations/2026_10_16_000200_create_event_batches_table.php` per data-model §2:
   - Columns:
     - `id uuid primary key`
@@ -275,11 +277,11 @@ every story.
     - `event_batches_events_is_array` — `CHECK (jsonb_typeof(events) = 'array')`
   - Index `event_batches_status_received_idx` on `(status, received_at DESC, id DESC)`.
   - `down()` drops the table.
-- [ ] T020 [P] Verify that the skeleton's `jobs`, `job_batches`, `failed_jobs`, `cache` and
+- [X] T020 [P] Verify that the skeleton's `jobs`, `job_batches`, `failed_jobs`, `cache` and
   `cache_locks` migrations exist and use `timestamptz` where they define timestamps. Set
   `config/queue.php` default to `database` and `config/cache.php` default to `database`
   (`array` in testing).
-- [ ] T021 [P] Create `app/Models/Content.php`:
+- [X] T021 [P] Create `app/Models/Content.php`:
   - Casts: `status` → `ContentStatus`, `cms_timestamp` / `synced_at` / `disabled_at` →
     `immutable_datetime`, `is_disabled` → bool. Leave `payload` uncast for now: T040 adds the
     object-preserving `JsonObjectPayload` cast (keeps `{}` vs `[]`).
@@ -288,7 +290,7 @@ every story.
   - `$guarded = ['*']` (writes only via explicit attribute assignment in actions).
   - `database/factories/ContentFactory.php` with states `published()`, `unpublished()`,
     `deleted()` (payload null), `disabled()`, and `version(int)`.
-- [ ] T022 [P] Create `app/Models/EventBatch.php`:
+- [X] T022 [P] Create `app/Models/EventBatch.php`:
   - `HasUuids` (UUID v7).
   - Casts: `status` → `BatchStatus`, datetimes immutable. Leave `events` uncast for now:
     **never** use the `array` cast here, because it turns `{}` payloads into `[]`. T040 adds the
@@ -296,7 +298,7 @@ every story.
   - `belongsTo retriedBy(User)`.
   - `database/factories/EventBatchFactory.php` with states `pending()`, `processed()`,
     `failed()`.
-- [ ] T023 Create `app/Exceptions/ProblemDetailsRenderer.php` and register it in
+- [X] T023 Create `app/Exceptions/ProblemDetailsRenderer.php` and register it in
   `bootstrap/app.php` → `withExceptions()`, for requests matching `api/*` or `cms/*` (and
   `shouldRenderJsonWhen` for both):
   - Render `application/problem+json` with `type: 'about:blank'`, `title` (HTTP reason
@@ -311,7 +313,7 @@ every story.
     - `ThrottleRequestsException` → 429 (keep `Retry-After`)
     - `QueryException` / `PDOException` during webhook acceptance → 503
     - everything else → 500, with no trace unless `app.debug`
-- [ ] T024 Configure routing in `bootstrap/app.php`:
+- [X] T024 Configure routing in `bootstrap/app.php`:
   - `withRouting(api: routes/api.php, apiPrefix: 'api', health: '/up', then:` register
     `routes/cms.php` with **no** `api` middleware group except `throttle:cms-webhook`)`.
   - `routes/api.php` wraps everything in `Route::prefix('v1')->middleware(['auth:sanctum',
@@ -323,24 +325,24 @@ every story.
   - Add `use Illuminate\Foundation\Auth\Access\AuthorizesRequests;` to
     `app/Http/Controllers/Controller.php`. Since Laravel 11 the base controller is empty, and
     T069/T085 rely on `$this->authorize()`.
-- [ ] T025 Configure Sanctum in `config/sanctum.php`:
+- [X] T025 Configure Sanctum in `config/sanctum.php`:
   - `'stateful' => []`, `'guard' => []`
   - `'expiration' => env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 129600)`
   - `'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'cms_')`
-- [ ] T026 [P] Write `tests/Feature/Console/ConsumerCommandsTest.php`:
+- [X] T026 [P] Write `tests/Feature/Console/ConsumerCommandsTest.php`:
   - `consumer:create` creates a user with the role and rejects a duplicate email and an
     invalid role.
   - `consumer:token` prints a token starting with `cms_` exactly once, stores only its hash,
     and accepts `--name` and `--expires-days`.
   - `consumer:revoke {email} {--token-id=}|{--all}` deletes the tokens.
-- [ ] T027 Implement the console commands so T026 passes:
+- [X] T027 Implement the console commands so T026 passes:
   - `app/Console/Commands/CreateConsumer.php` — `consumer:create {name} {email}
     {--role=user}`, validating email uniqueness and role ∈ `Role`.
   - `app/Console/Commands/IssueConsumerToken.php` — `consumer:token {email} {--name=default}
     {--expires-days=}`.
   - `app/Console/Commands/RevokeConsumerToken.php` — `consumer:revoke {email}
     {--token-id=} {--all}`.
-- [ ] T028 [P] Write `tests/Feature/Database/SchemaConstraintsTest.php`. Raw inserts MUST fail
+- [X] T028 [P] Write `tests/Feature/Database/SchemaConstraintsTest.php`. Raw inserts MUST fail
   for each of the following:
   - `contents.version = 0`
   - a `deleted` row with a payload
@@ -354,9 +356,11 @@ every story.
   - a user role `root`
 
   Also assert that the partial indexes exist, via `pg_indexes`. In a separate file,
-  `tests/Database/MigrationRollbackTest.php` (uses `DatabaseMigrations`, outside the
-  `RefreshDatabase` directory), assert that `migrate:rollback` down to zero followed by
-  `migrate` succeeds (migrations are reversible, constitution Principle V).
+  `tests/Database/MigrationRollbackTest.php` (outside the `RefreshDatabase` directory),
+  assert that `migrate:reset` down to zero followed by `migrate` succeeds (migrations are
+  reversible, constitution Principle V). Implementation note: it resets and re-migrates
+  explicitly instead of using `DatabaseMigrations`, whose tear-down would leave the schema
+  rolled back for later `RefreshDatabase` tests in the same parallel worker.
 
 **Checkpoint**: migrations run on both databases, the factories work, a consumer token can be
 issued, and errors render as problem+json.
