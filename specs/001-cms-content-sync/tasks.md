@@ -985,11 +985,11 @@ deliverable documentation.
     `tests/Support/OpenApiAsserter.php` was implemented. It found a contract defect: `oneOf`
     between `Content` and `AdminContent` can never match an administrator item (it is valid for
     both), so those unions became `anyOf`.
-- [ ] T093 [P] Write `docs/architecture.md`: data model summary with the state machines,
+- [X] T093 [P] Write `docs/architecture.md`: data model summary with the state machines,
   ingestion/processing sequence diagram (Mermaid), concurrency strategy, auth model,
   pagination, error format, observability, and a decisions table with links to `research.md`
   R1–R21, trade-offs, and known limitations.
-- [ ] T094 Rewrite `README.md` as the deliverable entry point:
+- [X] T094 Rewrite `README.md` as the deliverable entry point:
   - overview
   - quick start: `make setup` (one command: env, build, up, migrate, demo seed), then create
     consumers/tokens; `make test` (one command) for the suite (SC-007)
