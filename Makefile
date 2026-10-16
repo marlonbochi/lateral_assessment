@@ -39,7 +39,7 @@ test: ## Run the test suite (isolated cms_sync_test database)
 	$(EXEC) php artisan test --parallel
 
 coverage: ## Run the test suite with coverage
-	$(EXEC) php artisan test --parallel --coverage
+	$(EXEC) php artisan test --parallel --coverage --min=85
 
 perf: ## Run the performance tests against a 100k-row seed
 	$(EXEC) php artisan migrate:fresh --env=testing --force
@@ -52,7 +52,7 @@ lint: ## Pint (check) + Larastan
 fix: ## Apply Pint fixes
 	$(EXEC) vendor/bin/pint
 
-ci: lint test ## Everything CI runs
+ci: lint coverage ## Everything CI runs (lint, static analysis, tests with the 85% coverage gate)
 
 token: ## Issue a consumer token: make token EMAIL=you@example.test
 	$(EXEC) php artisan consumer:token $(EMAIL)

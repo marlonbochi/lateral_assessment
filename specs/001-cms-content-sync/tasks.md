@@ -1010,7 +1010,7 @@ deliverable documentation.
     `fetch-depth: 0` so the full history is scanned, not only the last commit).
   - `composer audit` is clean.
   - Run the `/security-review` skill on the branch and address its findings.
-- [ ] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
+- [X] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
   `app/Domain`, and add the missing tests. Then enable the gate in
   `.github/workflows/ci.yml` (`--coverage --min=85`) and in `make ci`.
 - [ ] T097 Run every scenario in `specs/001-cms-content-sync/quickstart.md` (S1–S13) manually

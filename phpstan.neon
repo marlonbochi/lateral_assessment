@@ -9,4 +9,6 @@ parameters:
         - database
         - routes
         - tests
-    tmpDir: storage/framework/cache/phpstan
+    # Outside the repository tree so the analysis cache (which records environment
+    # values) can never be committed.
+    tmpDir: /tmp/phpstan

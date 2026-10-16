@@ -47,3 +47,13 @@ Homestead.yaml
 
 # Local performance results
 /storage/logs/performance.json
+
+# Laravel runtime storage (generated; never commit: caches can capture environment values)
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+/storage/app/*
+!/storage/**/.gitkeep
