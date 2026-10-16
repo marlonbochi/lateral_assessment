@@ -605,7 +605,7 @@ token, and assert what is visible, the response shape, and pagination.
 
 ### Tests for User Story 2 ⚠️ write first, they must fail
 
-- [ ] T049 [P] [US2] Write `tests/Feature/Api/UserContentVisibilityTest.php`:
+- [X] T049 [P] [US2] Write `tests/Feature/Api/UserContentVisibilityTest.php`:
   - The list contains only `published` + `is_disabled = false`.
   - `show` returns `200` for a visible item.
   - `show` returns `404` problem+json for unpublished, deleted, disabled and unknown ids, with
@@ -613,7 +613,7 @@ token, and assert what is visible, the response shape, and pagination.
     after removing `instance`.
   - An item disappears after a newer unpublish or delete is processed via the webhook
     (scenario 4).
-- [ ] T050 [P] [US2] Write `tests/Feature/Api/ContentPaginationTest.php`:
+- [X] T050 [P] [US2] Write `tests/Feature/Api/ContentPaginationTest.php`:
   - Default cursor mode: 40 items → pages 15/15/10, no duplicates or gaps, order `synced_at DESC,
     cms_id DESC` (including tie-break on equal `synced_at`).
   - `meta.pagination = 'cursor'`, `next_cursor` null on the last page.
@@ -624,7 +624,7 @@ token, and assert what is visible, the response shape, and pagination.
   - `per_page` of 0 or 101 → 422.
   - `cursor` + `page` together → 422.
   - A tampered cursor → 422.
-- [ ] T051 [P] [US2] Write `tests/Feature/Api/ContentResourceShapeTest.php`:
+- [X] T051 [P] [US2] Write `tests/Feature/Api/ContentResourceShapeTest.php`:
   - A user's item has exactly the keys `id, version, content, cms_updated_at, synced_at`.
   - `id` equals `cms_id`, and the internal numeric id is never exposed.
   - `content: {}` serializes as an object.
@@ -632,30 +632,30 @@ token, and assert what is visible, the response shape, and pagination.
 
 ### Implementation for User Story 2
 
-- [ ] T052 [US2] Add `scopeVisibleTo(Builder $q, User $user)` to `app/Models/Content.php`.
+- [X] T052 [US2] Add `scopeVisibleTo(Builder $q, User $user)` to `app/Models/Content.php`.
   It branches on `$user->can('admin')` (the gate from T062 is the single source of role truth,
   constitution Principle II): users get `status = 'published' AND is_disabled = false`, admins
   get `status <> 'deleted'`. Until T062 lands, define the `admin` gate minimally in
   `AppServiceProvider` as part of this task. Also add
   `scopeFeedOrder` (`orderByDesc('synced_at')->orderByDesc('cms_id')`).
-- [ ] T053 [US2] Implement `app/Http/Requests/Api/V1/ListContentsRequest.php`:
+- [X] T053 [US2] Implement `app/Http/Requests/Api/V1/ListContentsRequest.php`:
   - Rules: `per_page` → `integer|between:1,100`; `cursor` → `string|prohibits:page`; `page` →
     `integer|min:1|prohibits:cursor`.
   - `perPage(): int` (default 15) and `usesPageNumbers(): bool`.
-- [ ] T054 [P] [US2] Implement `app/Http/Resources/PaginatedCollection.php` (or
+- [X] T054 [P] [US2] Implement `app/Http/Resources/PaginatedCollection.php` (or
   `paginationInformation()` on the collection), which shapes `meta` / `links` exactly as the
   contract's `CursorMeta` / `NumberedMeta` / `Links`. Invalid cursors detected via
   `Cursor::fromEncoded()` returning null → throw `ValidationException` on `cursor`.
-- [ ] T055 [P] [US2] Implement `app/Http/Resources/ContentResource.php` with the user view
+- [X] T055 [P] [US2] Implement `app/Http/Resources/ContentResource.php` with the user view
   `id` (cms_id), `version`, `content` (payload object), `cms_updated_at`, `synced_at`.
-- [ ] T056 [US2] Implement `app/Http/Controllers/Api/V1/ContentController.php`:
+- [X] T056 [US2] Implement `app/Http/Controllers/Api/V1/ContentController.php`:
   - `index(ListContentsRequest)`: `Content::visibleTo($user)->feedOrder()` →
     `cursorPaginate` or `paginate`.
   - `show(Request, string $contentId)`: resolve through `visibleTo($user)->where('cms_id',
     $contentId)->firstOrFail()`. No implicit model binding, so hidden equals not found.
   - Register `GET /contents` and `GET /contents/{contentId}` in `routes/api.php`, with
     `{contentId}` constrained to `[A-Za-z0-9][A-Za-z0-9._:-]*`.
-- [ ] T057 [US2] Run the US2 suite plus lint and commit.
+- [X] T057 [US2] Run the US2 suite plus lint and commit.
 
 **Checkpoint**: Users can browse synchronized content. US1 + US2 = end-to-end MVP.
 

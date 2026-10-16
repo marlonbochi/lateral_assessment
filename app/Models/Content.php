@@ -8,6 +8,8 @@ use App\Casts\JsonObjectPayload;
 use App\Enums\ContentStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\ContentFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -48,6 +50,37 @@ class Content extends Model
     public function getRouteKeyName(): string
     {
         return 'cms_id';
+    }
+
+    /**
+     * Rows the given consumer may see. The role decision goes through the
+     * `admin` gate (single source of role truth): administrators see every
+     * non-deleted item, users only published items that are not disabled.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        if ($user->can('admin')) {
+            $query->where('status', '<>', ContentStatus::Deleted->value);
+
+            return;
+        }
+
+        $query->where('status', ContentStatus::Published->value)->where('is_disabled', false);
+    }
+
+    /**
+     * Feed order: most recently synchronized first, CMS id as tie-breaker.
+     * Matches the (synced_at DESC, cms_id DESC) partial indexes.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function feedOrder(Builder $query): void
+    {
+        $query->orderByDesc('synced_at')->orderByDesc('cms_id');
     }
 
     /**
