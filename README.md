@@ -12,11 +12,13 @@ content without touching CMS-managed data.
 
 - **Version-based precedence**: duplicates, replays, and out-of-order events are ignored by
   comparing versions, never timestamps.
-- **All-or-nothing batches**: a batch is validated in full and applied atomically, in order.
+- **Durable async ingestion**: a batch is validated in full, stored in a transactional inbox,
+  and acknowledged with `202 Accepted`; workers apply it atomically, in order, with retries.
+  Failed batches are kept and can be re-processed, so no acknowledged delivery is lost.
 - **Delete tombstones**: deleted content keeps its deletion version, so late events cannot
   restore it.
 - **Separate actors**: the CMS uses HTTP Basic credentials from the environment; users and
-  administrators have their own credentials and roles.
+  administrators authenticate with revocable bearer tokens tied to their role.
 - **Local overrides**: the administrator's disabled flag is independent of CMS publication
   state and survives later publish/unpublish events.
 
@@ -49,7 +51,7 @@ This repository follows **Spec-Driven Development** with
 
 1. `constitution` — project principles ([done](.specify/memory/constitution.md))
 2. `specify` — what and why ([done](specs/001-cms-content-sync/spec.md))
-3. `clarify` — resolve ambiguities
+3. `clarify` — resolve ambiguities ([done](specs/001-cms-content-sync/spec.md#clarifications))
 4. `plan` — architecture, data model, contracts
 5. `tasks` — ordered, testable work items
 6. `analyze` — cross-artifact consistency check
