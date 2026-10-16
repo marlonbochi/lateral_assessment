@@ -33,3 +33,14 @@ Thumbs.db
 
 # Docker volumes
 /docker/data
+
+# Laravel
+*.log
+.env.production
+.phpactor.json
+/.phpunit.cache
+/public/fonts-manifest.dev.json
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+/database/*.sqlite

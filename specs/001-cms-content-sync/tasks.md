@@ -41,7 +41,7 @@ US2 because it hardens endpoints that must exist first.
 **Purpose**: Laravel skeleton, tooling, containers, and CI so every later task runs against
 PostgreSQL in Docker and is checked automatically.
 
-- [ ] T001 Scaffold the Laravel 13 skeleton into the repository root:
+- [X] T001 Scaffold the Laravel 13 skeleton into the repository root:
   - Run `composer create-project laravel/laravel:^13.0` into the scratchpad.
   - Copy the result into the root **without overwriting** `README.md`, `CLAUDE.md`, `.claude/`,
     `.specify/` or `specs/`, and merge Laravel's `.gitignore` entries into the existing
@@ -51,25 +51,25 @@ PostgreSQL in Docker and is checked automatically.
   - Remove the frontend scaffolding: `package.json`, `vite.config.js`, `resources/js`,
     `resources/css`, `resources/views/welcome.blade.php`, and the welcome route in
     `routes/web.php` (leave `routes/web.php` with no routes).
-- [ ] T002 Install the API stack:
+- [X] T002 Install the API stack:
   - Run `php artisan install:api`. This adds `laravel/sanctum:^4.0`, `routes/api.php` and the
     `personal_access_tokens` migration.
   - Add the Pest dev dependencies `pestphp/pest:^5.0` and `pestphp/pest-plugin-laravel`, then
     run `vendor/bin/pest --init` to create `tests/Pest.php`.
   - Delete the skeleton's example tests in `tests/Unit/ExampleTest.php` and
     `tests/Feature/ExampleTest.php`.
-- [ ] T003 [P] Add Larastan: `composer require --dev larastan/larastan:^3.0` and create
+- [X] T003 [P] Add Larastan: `composer require --dev larastan/larastan:^3.0` and create
   `phpstan.neon`:
   - `level: 8`
   - `paths: [app, config, database, routes, tests]`
   - include `vendor/larastan/larastan/extension.neon`
   - no baseline
-- [ ] T004 [P] Create `pint.json`:
+- [X] T004 [P] Create `pint.json`:
   - preset `laravel`
   - rules `declare_strict_types: true`, `strict_comparison: true`, `ordered_imports`,
     `no_unused_imports`, `final_class: false`
   - Then run `vendor/bin/pint` once over the skeleton.
-- [ ] T005 [P] Create `config/cms.php` with these keys, each read from env with the default
+- [X] T005 [P] Create `config/cms.php` with these keys, each read from env with the default
   shown:
   - `webhook.username` (`CMS_WEBHOOK_USERNAME`, null)
   - `webhook.password` (`CMS_WEBHOOK_PASSWORD`, null)
@@ -81,14 +81,14 @@ PostgreSQL in Docker and is checked automatically.
   - `processing.tries` (5)
   - `processing.backoff` ([5, 30, 120, 600])
   - `batches.retention_days` (`CMS_BATCH_RETENTION_DAYS`, 30)
-- [ ] T006 [P] Create `docker/php/Dockerfile` as a multi-stage build:
+- [X] T006 [P] Create `docker/php/Dockerfile` as a multi-stage build:
   - Stage `vendor`: `composer:2` image, `composer install --no-dev --prefer-dist
     --no-scripts`.
   - Stage `app`: `php:8.4-fpm-alpine` with extensions `pdo_pgsql`, `pgsql`, `opcache`,
     `pcntl`, `intl`; copy `docker/php/php.ini` and `docker/php/opcache.ini`; non-root `www-data`
     user; `WORKDIR /var/www/html`.
   - Stage `dev`: extends `app`, adds Composer and `pcov` for coverage.
-- [ ] T007 [P] Create `docker/nginx/default.conf`:
+- [X] T007 [P] Create `docker/nginx/default.conf`:
   - `server_tokens off`
   - `client_max_body_size 2m` (the app enforces the 1 MiB limit so the 413 comes back as
     problem+json)
@@ -96,9 +96,9 @@ PostgreSQL in Docker and is checked automatically.
   - security headers `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
     `Referrer-Policy: no-referrer`
   - deny dotfiles
-- [ ] T008 [P] Create `docker/postgres/init/01-create-test-db.sql` that creates the database
+- [X] T008 [P] Create `docker/postgres/init/01-create-test-db.sql` that creates the database
   `cms_sync_test` owned by the app user, next to the default `cms_sync`.
-- [ ] T009 Create `docker-compose.yml` (depends on T006–T008):
+- [X] T009 Create `docker-compose.yml` (depends on T006–T008):
   - Services:
     - `postgres` (`postgres:18-alpine`): healthcheck `pg_isready`, named volume, init script
       mounted.
@@ -108,7 +108,7 @@ PostgreSQL in Docker and is checked automatically.
     - `nginx`: publishes port `8080`.
   - The source is bind-mounted in dev.
   - Env comes from `.env`, and no secret is hard-coded.
-- [ ] T010 Create a `Makefile` with these targets:
+- [X] T010 Create a `Makefile` with these targets:
   - `up`, `down`, `build`, `shell`
   - `migrate` (`php artisan migrate`)
   - `fresh` (`php artisan migrate:fresh --seed`)
@@ -125,7 +125,7 @@ PostgreSQL in Docker and is checked automatically.
     `DemoSeeder` once T090 exists.
 
   All targets run inside the `app` container.
-- [ ] T011 Configure environments:
+- [X] T011 Configure environments:
   - `.env.example`: `DB_CONNECTION=pgsql`, `DB_HOST=postgres`, `DB_DATABASE=cms_sync`,
     `QUEUE_CONNECTION=database`, `CACHE_STORE=database`, `SESSION_DRIVER=array`, every
     `config/cms.php` variable with placeholder values (`CMS_WEBHOOK_PASSWORD=change-me`), and
@@ -136,7 +136,7 @@ PostgreSQL in Docker and is checked automatically.
     `CACHE_STORE=array`.
   - `.env` stays git-ignored. `.env.testing` is committed and contains only test values
     (never real secrets); document this in the README.
-- [ ] T012 [P] Create `.github/workflows/ci.yml`:
+- [X] T012 [P] Create `.github/workflows/ci.yml`:
   - Triggers: `push` and `pull_request`.
   - `permissions: contents: read`.
   - Concurrency group that cancels superseded runs.
@@ -155,7 +155,7 @@ PostgreSQL in Docker and is checked automatically.
          `hashFiles('tests/Performance/**') != ''` until T091 exists.
     4. `openapi`: `npx @redocly/cli@1 lint specs/001-cms-content-sync/contracts/openapi.yaml`.
     5. `docker`: `docker build --target app -f docker/php/Dockerfile .` (no push).
-- [ ] T013 Boot the stack from scratch with `make setup`, confirm that `GET /up` returns 200
+- [X] T013 Boot the stack from scratch with `make setup`, confirm that `GET /up` returns 200
   through nginx on port 8080, add the smoke test `tests/Feature/HealthTest.php` (`GET /up` →
   200) so the suite is never empty, and commit the Phase 1 result.
 
