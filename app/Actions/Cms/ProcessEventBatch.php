@@ -15,6 +15,7 @@ use App\Enums\BatchStatus;
 use App\Enums\ContentStatus;
 use App\Models\EventBatch;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Applies one batch atomically and in the order received (research R4-R6).
@@ -31,13 +32,15 @@ final class ProcessEventBatch
 
     public function handle(string $batchId): BatchResult
     {
-        return DB::transaction(function () use ($batchId): BatchResult {
+        $started = hrtime(true);
+
+        $result = DB::transaction(function () use ($batchId): BatchResult {
             /** @var EventBatch|null $batch */
             $batch = EventBatch::query()->lockForUpdate()->find($batchId);
 
             // Idempotent: queues deliver at least once.
             if ($batch === null || $batch->status === BatchStatus::Processed) {
-                return BatchResult::alreadyProcessed();
+                return BatchResult::alreadyProcessed($batchId);
             }
 
             $events = array_map(CmsEvent::fromValidated(...), $batch->events);
@@ -49,7 +52,7 @@ final class ProcessEventBatch
                 $outcomes[] = $this->apply($batch->id, $position, $event);
             }
 
-            $result = new BatchResult($outcomes);
+            $result = new BatchResult($batch->id, $batch->attempts, $outcomes);
 
             $batch->forceFill([
                 'status' => BatchStatus::Processed,
@@ -61,6 +64,47 @@ final class ProcessEventBatch
 
             return $result;
         }, attempts: 3);
+
+        // Logged only after commit: a rolled-back batch never appears as applied.
+        $this->log($result, (hrtime(true) - $started) / 1e6);
+
+        return $result;
+    }
+
+    private function log(BatchResult $result, float $durationMs): void
+    {
+        $logger = Log::channel('cms');
+
+        if ($result->alreadyProcessed) {
+            $logger->info('cms.batch.already_processed', ['batch_id' => $result->batchId]);
+
+            return;
+        }
+
+        foreach ($result->outcomes as $outcome) {
+            $decision = $outcome->decision;
+
+            $logger->info($decision->apply ? 'cms.event.applied' : 'cms.event.ignored', array_filter([
+                'batch_id' => $result->batchId,
+                'attempt' => $result->attempt,
+                'position' => $outcome->position,
+                'content_id' => $outcome->event->id,
+                'type' => $outcome->event->type->value,
+                'incoming_version' => $outcome->event->version,
+                'stored_version' => $outcome->previous?->version,
+                'previous_status' => $outcome->previous?->status->value,
+                'new_status' => $decision->newStatus?->value,
+                'reason' => $decision->ignoreReason?->value,
+            ], fn (mixed $value, string $key): bool => $key !== 'reason' || $value !== null, ARRAY_FILTER_USE_BOTH));
+        }
+
+        $logger->info('cms.batch.processed', [
+            'batch_id' => $result->batchId,
+            'attempt' => $result->attempt,
+            'applied' => $result->applied(),
+            'ignored' => $result->ignored(),
+            'duration_ms' => round($durationMs, 2),
+        ]);
     }
 
     /**

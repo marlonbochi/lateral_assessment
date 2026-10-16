@@ -7,8 +7,10 @@ namespace App\Jobs;
 use App\Actions\Cms\ProcessEventBatch;
 use App\Enums\BatchStatus;
 use App\Models\EventBatch;
+use App\Support\Logging\SafeError;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -43,17 +45,38 @@ final class ProcessEventBatchJob implements ShouldQueue
         // Counted in its own statement so it survives the rollback of a failed attempt.
         EventBatch::query()->whereKey($this->batchId)->increment('attempts');
 
-        $process->handle($this->batchId);
+        try {
+            $process->handle($this->batchId);
+        } catch (Throwable $e) {
+            Log::channel('cms')->warning('cms.batch.attempt_failed', [
+                'batch_id' => $this->batchId,
+                'attempt' => $this->currentAttempt(),
+                'error' => SafeError::describe($e),
+            ]);
+
+            throw $e;
+        }
     }
 
     public function failed(?Throwable $exception): void
     {
+        $error = $exception === null ? 'Processing failed.' : SafeError::describe($exception);
+
         EventBatch::query()->whereKey($this->batchId)->update([
             'status' => BatchStatus::Failed,
             'failed_at' => now(),
-            'last_error' => $exception === null
-                ? 'Processing failed.'
-                : mb_substr($exception::class.': '.$exception->getMessage(), 0, 1000),
+            'last_error' => $error,
         ]);
+
+        Log::channel('cms')->error('cms.batch.failed', [
+            'batch_id' => $this->batchId,
+            'attempts' => $this->currentAttempt(),
+            'error' => $error,
+        ]);
+    }
+
+    private function currentAttempt(): int
+    {
+        return (int) EventBatch::query()->whereKey($this->batchId)->value('attempts');
     }
 }

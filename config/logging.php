@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -53,6 +54,19 @@ return [
     */
 
     'channels' => [
+
+        // Structured (JSON) log of the CMS event lifecycle: received, applied,
+        // ignored, rejected, failed batches and administrator overrides.
+        'cms' => [
+            'driver' => 'monolog',
+            'handler' => StreamHandler::class,
+            'handler_with' => [
+                'stream' => env('LOG_CMS_STREAM', 'php://stderr'),
+            ],
+            'formatter' => JsonFormatter::class,
+            'level' => env('LOG_CMS_LEVEL', 'info'),
+            'replace_placeholders' => true,
+        ],
 
         'stack' => [
             'driver' => 'stack',

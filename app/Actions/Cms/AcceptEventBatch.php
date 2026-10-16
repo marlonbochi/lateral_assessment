@@ -9,6 +9,7 @@ use App\Jobs\ProcessEventBatchJob;
 use App\Models\EventBatch;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Durably records a validated batch in the inbox and schedules its processing
@@ -25,7 +26,7 @@ final class AcceptEventBatch
      */
     public function handle(string $rawEvents, int $eventCount, ?string $requestId = null): EventBatch
     {
-        return DB::transaction(function () use ($rawEvents, $eventCount, $requestId): EventBatch {
+        $batch = DB::transaction(function () use ($rawEvents, $eventCount, $requestId): EventBatch {
             $batch = EventBatch::query()->forceCreate([
                 'status' => BatchStatus::Pending,
                 'events' => $rawEvents,
@@ -47,5 +48,13 @@ final class AcceptEventBatch
 
             return $batch;
         });
+
+        Log::channel('cms')->info('cms.batch.received', [
+            'batch_id' => $batch->id,
+            'event_count' => $eventCount,
+            'request_id' => $requestId,
+        ]);
+
+        return $batch;
     }
 }

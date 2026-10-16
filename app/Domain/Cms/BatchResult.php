@@ -13,13 +13,15 @@ final readonly class BatchResult
      * @param  list<EventOutcome>  $outcomes
      */
     public function __construct(
+        public string $batchId,
+        public int $attempt,
         public array $outcomes,
         public bool $alreadyProcessed = false,
     ) {}
 
-    public static function alreadyProcessed(): self
+    public static function alreadyProcessed(string $batchId): self
     {
-        return new self([], true);
+        return new self($batchId, 0, [], true);
     }
 
     public function applied(): int

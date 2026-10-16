@@ -804,7 +804,7 @@ context keys, and hygiene.
 
 ### Tests for User Story 5 ⚠️ write first, they must fail
 
-- [ ] T073 [P] [US5] Write `tests/Feature/Observability/EventLoggingTest.php`, attaching a
+- [X] T073 [P] [US5] Write `tests/Feature/Observability/EventLoggingTest.php`, attaching a
   Monolog `TestHandler` to the `cms` channel. Assert:
   - `cms.batch.received` with `batch_id`, `event_count`, `request_id`
   - `cms.event.applied` and `cms.event.ignored` (with `reason` duplicate/stale) with
@@ -814,7 +814,7 @@ context keys, and hygiene.
   - `cms.batch.rejected` with the field paths only
   - `cms.batch.attempt_failed` and `cms.batch.failed` with `attempt`
   - `content.override.changed` with `actor_id`, `content_id`, `disabled`
-- [ ] T074 [P] [US5] Write `tests/Feature/Observability/LogHygieneTest.php`:
+- [X] T074 [P] [US5] Write `tests/Feature/Observability/LogHygieneTest.php`:
   - Run the quickstart scenarios S1–S11 end to end with a capturing handler on **all**
     channels.
   - Assert that no record contains the CMS password, the Basic header value, any bearer token
@@ -823,29 +823,33 @@ context keys, and hygiene.
 
 ### Implementation for User Story 5
 
-- [ ] T075 [US5] Add the `cms` channel to `config/logging.php`: driver `monolog`, handler
+- [X] T075 [US5] Add the `cms` channel to `config/logging.php`: driver `monolog`, handler
   `StreamHandler` to `env('LOG_CMS_STREAM', 'php://stderr')`, formatter `JsonFormatter`, and
   level `env('LOG_CMS_LEVEL', 'info')`. Document `LOG_CMS_*` in `.env.example`.
-- [ ] T076 [P] [US5] Implement `app/Http/Middleware/AssignRequestId.php`:
+- [X] T076 [P] [US5] Implement `app/Http/Middleware/AssignRequestId.php`:
   - Accept an incoming `X-Request-Id` if it matches `^[A-Za-z0-9-]{1,64}$`, otherwise generate a
     UUID v7.
-  - Add it via `Log::shareContext`.
+  - Add it via `Log::shareContext`. Implementation note: Laravel's `Context` is used instead;
+    it is attached to every log record and also travels with queued jobs to the worker.
   - Echo it in the response header.
   - Register it globally in `bootstrap/app.php`.
-- [ ] T077 [US5] Add the logging statements:
+- [X] T077 [US5] Add the logging statements:
   - `AcceptEventBatch` → `cms.batch.received`.
   - `StoreEventBatchRequest::failedValidation` → `cms.batch.rejected`, with
     `array_keys($errors)` only.
   - `ProcessEventBatch` → per-event `cms.event.applied` / `cms.event.ignored`, and
     `cms.batch.processed` with `hrtime` duration.
   - Use `Log::channel('cms')->withContext(['batch_id' => …, 'attempt' => …])`.
-- [ ] T078 [US5] Add logging to the failure paths in `ProcessEventBatchJob`:
+- [X] T078 [US5] Add logging to the failure paths in `ProcessEventBatchJob`:
   - In `handle`, catch, log `cms.batch.attempt_failed`, and rethrow.
   - In `failed()`, log `cms.batch.failed`.
   - In `SetContentDisabled`, log `content.override.changed`.
   - Extract the sanitized error formatter to `app/Support/Logging/SafeError.php` (class +
-    message, 1000 chars, strips anything after `payload`).
-- [ ] T079 [US5] Run the US5 suite plus lint and commit.
+    message, 1000 chars). Implementation note: for `QueryException` it keeps only the driver
+    message and drops the SQL with bindings (the inbox INSERT binds the whole batch); a custom
+    `QueryException` reporter in `bootstrap/app.php` does the same for framework error logs,
+    and `zend.exception_ignore_args` keeps arguments out of traces.
+- [X] T079 [US5] Run the US5 suite plus lint and commit.
 
 **Checkpoint**: Every event outcome is traceable by `batch_id` and `request_id`.
 

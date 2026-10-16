@@ -3,14 +3,18 @@
 declare(strict_types=1);
 
 use App\Exceptions\ProblemDetailsRenderer;
+use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\AuthenticateCms;
 use App\Http\Middleware\EnsureRole;
+use App\Support\Logging\SafeError;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -25,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(AssignRequestId::class);
+
         $middleware->alias([
             'auth.cms' => AuthenticateCms::class,
             'role' => EnsureRole::class,
@@ -38,6 +44,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request): bool => ProblemDetailsRenderer::appliesTo($request) || $request->expectsJson(),
         );
+
+        // QueryException messages contain SQL bindings (the inbox INSERT binds the
+        // whole batch). Report a sanitized record instead of the default one.
+        $exceptions->report(function (QueryException $e): bool {
+            Log::error('database.query_failed', [
+                'sql' => $e->getSql(),
+                'error' => SafeError::describe($e),
+            ]);
+
+            return false;
+        });
 
         $exceptions->render(
             fn (Throwable $e, Request $request): ?JsonResponse => app(ProblemDetailsRenderer::class)->render($e, $request),

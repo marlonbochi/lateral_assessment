@@ -10,7 +10,9 @@ use App\Rules\JsonObject;
 use App\Rules\Rfc3339DateTime;
 use App\Rules\StrictPositiveInteger;
 use App\Support\Json\JsonPayload;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use JsonException;
@@ -94,6 +96,22 @@ final class StoreEventBatchRequest extends FormRequest
 
             $this->validatePayloads($validator);
         }];
+    }
+
+    /**
+     * Log the rejection with field paths only (never values), then answer 422.
+     */
+    protected function failedValidation(ValidatorContract $validator): void
+    {
+        $requestId = $this->attributes->get('request_id');
+
+        Log::channel('cms')->warning('cms.batch.rejected', [
+            'fields' => array_keys($validator->errors()->messages()),
+            'event_count' => count($this->rawEvents),
+            'request_id' => is_string($requestId) ? $requestId : null,
+        ]);
+
+        parent::failedValidation($validator);
     }
 
     /**
