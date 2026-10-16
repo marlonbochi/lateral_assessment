@@ -1,0 +1,35 @@
+# Environment and secrets
+.env
+.env.backup
+.env.production
+.env.*.local
+auth.json
+
+# Dependencies and build output
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+
+# Test and tooling caches
+.phpunit.cache
+.phpunit.result.cache
+/coverage
+.php-cs-fixer.cache
+
+# IDE and OS
+.idea
+.vscode
+.fleet
+.zed
+.DS_Store
+Thumbs.db
+
+# Local agent settings (may contain machine-specific permissions)
+.claude/settings.local.json
+
+# Docker volumes
+/docker/data
