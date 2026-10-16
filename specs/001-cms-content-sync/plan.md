@@ -180,20 +180,22 @@ database/
 └── seeders/                        # DemoSeeder, PerformanceSeeder
 tests/
 ├── Pest.php
-├── TestCase.php                    # aborts unless DB name ends with _test
+├── TestCase.php                    # aborts unless DB name matches /_test(_test_\d+)?$/ (parallel-safe)
 ├── Arch/ArchitectureTest.php
 ├── Unit/Domain/Cms/                # EventPrecedenceTest (datasets + permutation property test)
 ├── Unit/Support/                   # JsonPayloadTest
-├── Unit/Policies/                  # PolicyTest
 ├── Feature/Webhook/                # auth, validation, acceptance, atomic hand-off
-├── Feature/Processing/             # duplicates, out-of-order, edge case, delete/tombstone, re-create, retries, concurrency
+├── Feature/Processing/             # duplicates, out-of-order, edge case, delete/tombstone, re-create, retries
+├── Feature/Policies/               # PolicyTest (gates need the app container)
 ├── Feature/Api/                    # visibility, overrides, pagination, resource shape
 ├── Feature/Admin/                  # batch list/show/retry
 ├── Feature/Console/                # consumer & batch commands
 ├── Feature/Observability/          # log content & hygiene
 ├── Feature/Security/               # actor separation, token validity, access matrix, rate limits
 ├── Feature/Contract/               # OpenAPI conformance
-└── Feature/Performance/            # query plans, p95 latency, ack/processing time (group: performance)
+├── Database/                       # migration rollback (DatabaseMigrations)
+├── Concurrency/                    # parallel processes, DatabaseTruncation (group: concurrency)
+└── Performance/                    # self-seeding; plans, p95, ack/processing time (group: performance)
 
 docker/
 ├── php/Dockerfile                  # multi-stage: composer deps → php:8.4-fpm-alpine

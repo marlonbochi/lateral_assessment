@@ -118,8 +118,8 @@ PostgreSQL in Docker and is checked automatically.
   - `fix` (`vendor/bin/pint`)
   - `ci` (lint + test)
   - `token` (wrapper for `consumer:token`)
-  - `perf`: seeds `PerformanceSeeder` (100k rows) into the test database and runs
-    `pest --group=performance`.
+  - `perf`: runs `php artisan migrate:fresh --env=testing` then `PERF_SEED_ROWS=100000
+    vendor/bin/pest tests/Performance` (the tests seed themselves; see T091).
   - `setup`: the single bootstrap command for SC-007. It copies `.env.example` to `.env` if
     missing, generates `APP_KEY`, runs build + up, waits for a healthy DB, migrates, and seeds
     `DemoSeeder` once T090 exists.
@@ -150,9 +150,9 @@ PostgreSQL in Docker and is checked automatically.
        - `php artisan migrate --env=testing`.
        - `vendor/bin/pest --parallel --coverage` (pcov). No `--min` yet: T096 adds the 85%
          gate once the suite exists, so the Phase 1 checkpoint (zero tests) stays green.
-       - `vendor/bin/pest --group=performance` after `php artisan db:seed
-         --class=PerformanceSeeder --env=testing` with `PERF_SEED_ROWS=20000`. Make this step
-         conditional on `hashFiles('tests/Feature/Performance/**') != ''` until T091 exists.
+       - `PERF_SEED_ROWS=20000 vendor/bin/pest tests/Performance` (serial; the tests seed
+         themselves, see T091). Make this step conditional on
+         `hashFiles('tests/Performance/**') != ''` until T091 exists.
     4. `openapi`: `npx @redocly/cli@1 lint specs/001-cms-content-sync/contracts/openapi.yaml`.
     5. `docker`: `docker build --target app -f docker/php/Dockerfile .` (no push).
 - [ ] T013 Boot the stack from scratch with `make setup`, confirm that `GET /up` returns 200
@@ -172,9 +172,21 @@ every story.
 
 - [ ] T014 Create the test harness:
   - `tests/TestCase.php`: in `setUp()`, throw a `RuntimeException` unless
-    `config('database.connections.pgsql.database')` ends with `_test`.
-  - `tests/Pest.php`:
-    - Use `TestCase` + `RefreshDatabase` for `Feature`.
+    `config('database.connections.pgsql.database')` matches `/_test(_test_\d+)?$/`. The optional
+    suffix is needed because `--parallel` gives each process its own database
+    (`cms_sync_test_test_1`, `_2`, …). Add `tests/Unit/TestDatabaseGuardTest.php`, where
+    `cms_sync_test` and `cms_sync_test_test_3` pass, and `cms_sync` and `cms_sync_test_prod`
+    throw (extract the check to a static `TestCase::assertTestDatabase(string $name)` so it is
+    unit-testable).
+  - `tests/Pest.php` defines the DB-reset strategy per directory, because Pest's `uses()->in()`
+    applies a trait to every file in a directory:
+    - `uses(TestCase::class, RefreshDatabase::class)->in('Feature')`: transactional, the
+      default for all HTTP and processing tests.
+    - `uses(TestCase::class)->in('Concurrency', 'Performance', 'Database')`: no
+      `RefreshDatabase`. These files choose `DatabaseTruncation` / `DatabaseMigrations`
+      themselves, because they need committed data or real migration runs.
+    - `phpunit.xml` defines the testsuites `Unit`, `Feature`, `Database` and `Concurrency`, and
+      `Performance` is excluded from the default run.
     - Helpers:
       - `cmsAuthHeaders(?string $user = null, ?string $pass = null): array`
       - `actingAsRole(Role $role): User` (creates a user and a real Sanctum token, returns
@@ -331,9 +343,10 @@ every story.
   - an unknown batch status
   - a user role `root`
 
-  Also assert that the partial indexes exist, via `pg_indexes`, and that `migrate:rollback`
-  down to zero followed by `migrate` succeeds (migrations are reversible, constitution
-  Principle V). Use `DatabaseMigrations` for the rollback test, not `RefreshDatabase`.
+  Also assert that the partial indexes exist, via `pg_indexes`. In a separate file,
+  `tests/Database/MigrationRollbackTest.php` (uses `DatabaseMigrations`, outside the
+  `RefreshDatabase` directory), assert that `migrate:rollback` down to zero followed by
+  `migrate` succeeds (migrations are reversible, constitution Principle V).
 
 **Checkpoint**: migrations run on both databases, the factories work, a consumer token can be
 issued, and errors render as problem+json.
@@ -438,14 +451,18 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - large integers within the int64 range
   - floats
   - `null` values inside the payload
-- [ ] T037 [P] [US1] Write `tests/Feature/Processing/ConcurrentProcessingTest.php` (Pest group
+- [ ] T037 [P] [US1] Write `tests/Concurrency/ConcurrentProcessingTest.php` (Pest group
   `concurrency`):
-  - Use `DatabaseTruncation` in this file instead of `RefreshDatabase`. Child processes use
-    their own connections and can only see **committed** data, so seeded batches must be
-    committed before the processes start.
+  - Put it in `tests/Concurrency/` (not `Feature/`) and use `DatabaseTruncation`. Child
+    processes use their own connections and can only see **committed** data, so the seeded
+    batches must be committed before the processes start.
   - Run two `Symfony\Component\Process\Process` workers that each call an artisan test
     command, processing batches `[x v2, y v2]` and `[y v3, x v3]` at the same time, 50
     iterations.
+  - Pass each child `APP_ENV=testing` and `DB_DATABASE=` the **current** connection's database
+    (`config('database.connections.pgsql.database')`), because under `--parallel` it is
+    `cms_sync_test_test_N`, not the `cms_sync_test` from `.env.testing`. Assert in the test that
+    the children report the same database name (the command prints it with `-v`).
   - Assert that no deadlock exception occurs, and that the final rows are `x v3` and `y v3`.
 
 ### Implementation for User Story 1
@@ -548,8 +565,9 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - `failed(Throwable)` sets `status = failed`, `failed_at`, and a sanitized `last_error`
     (exception class + message truncated to 1000 chars; never event payloads).
 - [ ] T047 [US1] Add the artisan test-support command
-  `app/Console/Commands/ProcessBatchOnce.php` (`cms:batches:process {id}`, hidden), used by T037
-  to run `ProcessEventBatch` in a separate process, and the sample webhook body
+  `app/Console/Commands/ProcessBatchOnce.php` (`cms:batches:process {id}`, hidden; prints the
+  connected database name when run with `-v`), used by T037 to run `ProcessEventBatch` in a
+  separate process, and the sample webhook body
   `docs/examples/batch.json` (the brief's 3-event example).
 - [ ] T048 [US1] Run the whole US1 suite plus `make lint` until green, and commit.
 
@@ -672,7 +690,8 @@ gating that never leaks whether a resource exists.
   - `app/Policies/EventBatchPolicy.php`: `viewAny`, `view` and `retry` →
     `Gate::allows('admin')`.
 
-  Add the unit test `tests/Unit/Policies/PolicyTest.php` with a dataset of role × ability.
+  Add `tests/Feature/Policies/PolicyTest.php` with a dataset of role × ability. It lives in
+  `Feature/` because gates need the booted application container.
 - [ ] T063 [US4] Implement `app/Http/Middleware/EnsureRole.php` (`role:admin`) as a thin
   adapter over the gate: `Gate::authorize($role)`, which throws `AuthorizationException('This
   action requires the admin role.')`. It contains **no** role comparison of its own. Alias it in
@@ -897,10 +916,16 @@ deliverable documentation.
 - [ ] T090 [P] Create `database/seeders/DemoSeeder.php` (admin + user accounts, ~30 contents in
   mixed states; prints nothing secret) and `database/seeders/PerformanceSeeder.php` (100k
   contents via chunked `insert`, realistic status mix 80/15/5 and 2% disabled).
-- [ ] T091 Write `tests/Feature/Performance/PerformanceTest.php` (Pest group `performance`,
-  excluded from the default run, executed by the CI step defined in T012 after seeding
-  `PERF_SEED_ROWS=20000`; `PerformanceSeeder` reads that env var, default 100000). Use
-  `DatabaseTruncation`, not `RefreshDatabase`, because the seed must be committed:
+- [ ] T091 Write `tests/Performance/PerformanceTest.php` (Pest group `performance`, outside
+  `Feature/` and excluded from the default run, executed by the CI step in T012 and by
+  `make perf`):
+  - It seeds itself: the first test checks `Content::count()` and runs `PerformanceSeeder`
+    with `PERF_SEED_ROWS` (default 100000) only if fewer rows exist, so the data is committed
+    and reused across the file. It uses **no** DB-reset trait (neither `RefreshDatabase` nor
+    `DatabaseTruncation`, which would wipe the seed before each test); `make perf` and CI start
+    from `migrate:fresh`.
+  - The ingestion check uses ids prefixed `perf-ingest-{uuid}`, so it never collides with
+    seeded rows.
   - `EXPLAIN (FORMAT JSON)` of the user and admin list queries (first page and a deep cursor
     page) uses `contents_user_feed_idx` / `contents_admin_feed_idx` with no `Sort` node (SC-006
     design evidence).
@@ -944,7 +969,7 @@ deliverable documentation.
   `.github/workflows/ci.yml` (`--coverage --min=85`) and in `make ci`.
 - [ ] T097 Run every scenario in `specs/001-cms-content-sync/quickstart.md` (S1–S13) manually
   against the Docker stack, and fix any discrepancy between the docs, the contract and the
-  behaviour. Run `make perf` (100k-row `PerformanceSeeder` + `pest --group=performance`) and
+  behaviour. Run `make perf` (self-seeding 100k rows, `tests/Performance`) and
   record the measured ack/processing times and p95 latencies in the README.
 - [ ] T098 Final constitution compliance review: tick the README roadmap, update `CLAUDE.md` if
   any structure changed, make sure CI is green on `main`, and tag `v1.0.0`.

@@ -276,19 +276,23 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
   - **Unit** (`tests/Unit`): `EventPrecedence` (exhaustive datasets + randomized permutation
     property test for SC-001), value objects, enums, cursor/pagination helpers.
   - **Feature/Integration** (`tests/Feature`): HTTP + PostgreSQL via `RefreshDatabase`:
-    webhook auth/validation/acknowledgement, batch processing via the job (queue `sync` in tests
-    where the hand-off is not under test; real `database` driver where it is), access matrix,
+    webhook auth/validation/acknowledgement, batch processing through the **real `database`
+    queue driver** everywhere (a `drainQueue()` helper runs the worker until the queue is
+    empty, so tests exercise the same path as production), access matrix,
     visibility, overrides, pagination, problem details, logging hygiene, failure injection and
     retry/recovery.
-  - **Concurrency** test: two DB connections processing conflicting batches in parallel
-    processes to prove lock ordering/no lost updates. It uses `DatabaseTruncation` (as do the
-    performance tests), because other processes only see committed data.
-  - **Performance** group (opt-in, run in CI with a 20k seed and locally with 100k via
-    `make perf`): query plans, p95 latency, and ack/processing times.
+  - **Concurrency** (`tests/Concurrency`): conflicting batches processed by parallel processes
+    to prove lock ordering and no lost updates. It uses `DatabaseTruncation`, because other
+    processes only see committed data, and passes the current (per-parallel-worker) database
+    name to the child processes.
+  - **Performance** (`tests/Performance`, opt-in; 20k rows in CI, 100k via `make perf`): query
+    plans, p95 latency, and ack/processing times. It seeds itself once and uses no reset trait.
+  - **Database** (`tests/Database`): migration rollback/re-run with `DatabaseMigrations`.
   - **Arch** tests: controllers don't touch the DB directly, domain layer has no Laravel deps,
     `declare(strict_types=1)` everywhere.
   - Tests use a **dedicated `cms_sync_test` database** (`phpunit.xml` + `.env.testing`); a guard in
-    `TestCase` aborts if the configured database name does not end in `_test`.
+    `TestCase` aborts unless the database name matches `/_test(_test_\d+)?$/` (the suffix
+    covers Laravel's per-process databases under `--parallel`).
 - **Rationale**: Covers every scenario required by the brief and the constitution, and makes
   "tests must not use the development database" enforceable rather than conventional.
 - **Alternatives considered**: SQLite in-memory for speed (rejected: advisory locks, partial
