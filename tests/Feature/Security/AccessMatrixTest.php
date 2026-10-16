@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use App\Enums\Role;
 use App\Models\Content;
+use App\Models\EventBatch;
 use App\Models\User;
 
 use function Pest\Laravel\call;
+
+const MATRIX_BATCH_ID = '0199f0a2-6c1e-7b3a-9d1e-2f4b5c6d7e8f';
 
 /*
  * Every endpoint × every actor → expected status (SC-004). Later phases append
@@ -43,6 +46,10 @@ function accessMatrix(): array
         ['GET', '/api/v1/contents?status=unpublished', [401, 401, 403, 200]],
         ['PUT', '/api/v1/contents/content-1/disabled', [401, 401, 403, 200]],
         ['DELETE', '/api/v1/contents/content-1/disabled', [401, 401, 403, 200]],
+        // US6: event batch management (administrators only).
+        ['GET', '/api/v1/admin/event-batches', [401, 401, 403, 200]],
+        ['GET', '/api/v1/admin/event-batches/'.MATRIX_BATCH_ID, [401, 401, 403, 200]],
+        ['POST', '/api/v1/admin/event-batches/'.MATRIX_BATCH_ID.'/retry', [401, 401, 403, 202]],
     ];
 
     foreach ($endpoints as [$method, $uri, $statuses]) {
@@ -56,6 +63,7 @@ function accessMatrix(): array
 
 it('enforces the access matrix', function (string $method, string $uri, string $actor, int $status): void {
     Content::factory()->published()->create(['cms_id' => 'content-1']);
+    EventBatch::factory()->failed()->create(['id' => MATRIX_BATCH_ID]);
 
     $body = $method === 'POST' && str_starts_with($uri, '/cms/')
         ? (string) json_encode([cmsEvent('delete', 'content-2', 1)])

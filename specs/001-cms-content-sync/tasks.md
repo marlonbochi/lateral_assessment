@@ -865,7 +865,7 @@ and verify `processed` and correct content.
 
 ### Tests for User Story 6 ⚠️ write first, they must fail
 
-- [ ] T080 [P] [US6] Write `tests/Feature/Processing/RetryAndRecoveryTest.php` (SC-005a):
+- [X] T080 [P] [US6] Write `tests/Feature/Processing/RetryAndRecoveryTest.php` (SC-005a):
   - Inject a persistent failure and drain the queue through all 5 attempts (fake the
     backoff to 0 in the test config).
   - Assert that the batch is `failed` with `failed_at`, `attempts = 5` and a sanitized
@@ -874,7 +874,7 @@ and verify `processed` and correct content.
     correct content.
   - Assert that a batch whose events are stale by the time of the retry ends `processed`, with
     the events counted as ignored.
-- [ ] T081 [P] [US6] Write `tests/Feature/Admin/EventBatchApiTest.php`:
+- [X] T081 [P] [US6] Write `tests/Feature/Admin/EventBatchApiTest.php`:
   - `GET /api/v1/admin/event-batches`: ordering `received_at DESC`, `?status=failed` filter,
     cursor meta, invalid status → 422.
   - `GET …/{id}`: the event summary has `position, id, type, version, timestamp` and **no**
@@ -885,7 +885,7 @@ and verify `processed` and correct content.
   - A user on every batch endpoint → 403.
 
   Also append these rows to the T060 matrix.
-- [ ] T082 [P] [US6] Write `tests/Feature/Console/BatchCommandsTest.php`:
+- [X] T082 [P] [US6] Write `tests/Feature/Console/BatchCommandsTest.php`:
   - `cms:batches:failed` prints a table of failed batches.
   - `cms:batches:retry {id}` and `--all` move batches to pending and queue jobs, with
     `retried_by` null.
@@ -895,7 +895,7 @@ and verify `processed` and correct content.
 
 ### Implementation for User Story 6
 
-- [ ] T083 [US6] Implement `app/Actions/Cms/RetryEventBatch.php::handle(EventBatch $batch, ?User
+- [X] T083 [US6] Implement `app/Actions/Cms/RetryEventBatch.php::handle(EventBatch $batch, ?User
   $actor): EventBatch`. In a transaction:
   - `lockForUpdate`.
   - If the status is not `failed`, throw `app/Exceptions/BatchNotRetryableException.php`
@@ -905,11 +905,11 @@ and verify `processed` and correct content.
   - Dispatch `ProcessEventBatchJob` on the configured connection and queue inside the same
     transaction.
   - Log `cms.batch.retry_requested` with `origin: api|cli`.
-- [ ] T084 [P] [US6] Implement `app/Http/Resources/EventBatchResource.php` (the contract's
+- [X] T084 [P] [US6] Implement `app/Http/Resources/EventBatchResource.php` (the contract's
   `EventBatch` fields) and `app/Http/Resources/EventBatchDetailResource.php` (adds `events[]`
   summary mapped from the stored events: `position`, `id`, `type`, `version`, `timestamp` —
   never `payload`).
-- [ ] T085 [US6] Implement `app/Http/Requests/Api/V1/ListEventBatchesRequest.php` (`status` →
+- [X] T085 [US6] Implement `app/Http/Requests/Api/V1/ListEventBatchesRequest.php` (`status` →
   `Rule::enum(BatchStatus::class)`, `per_page` 1–100, `cursor`) and
   `app/Http/Controllers/Api/V1/Admin/EventBatchController.php`:
   - `index` uses the `status`/`received_at DESC, id DESC` order with cursor pagination.
@@ -918,17 +918,17 @@ and verify `processed` and correct content.
     `$this->authorize('viewAny', EventBatch::class)`.
   - Register `GET /admin/event-batches`, `GET /admin/event-batches/{batch}` and
     `POST /admin/event-batches/{batch}/retry` under `role:admin` in `routes/api.php`.
-- [ ] T086 [US6] Implement the console commands in `app/Console/Commands/`:
+- [X] T086 [US6] Implement the console commands in `app/Console/Commands/`:
   - `ListFailedBatches.php` (`cms:batches:failed`)
   - `RetryFailedBatches.php` (`cms:batches:retry {id?} {--all}`), via `RetryEventBatch` with
     actor null
   - `DiscardFailedBatch.php` (`cms:batches:discard {id} {--force}`)
-- [ ] T087 [US6] Make `EventBatch` `MassPrunable`: `prunable()` returns `status = processed AND
+- [X] T087 [US6] Make `EventBatch` `MassPrunable`: `prunable()` returns `status = processed AND
   processed_at < now() - config('cms.batches.retention_days') days`. In `routes/console.php`,
   schedule `model:prune --model=App\\Models\\EventBatch` daily and `sanctum:prune-expired
   --hours=24` daily. Add a test in `tests/Feature/Console/PruningTest.php` showing that failed
   and recent batches are kept.
-- [ ] T088 [US6] Run the US6 suite plus lint and commit.
+- [X] T088 [US6] Run the US6 suite plus lint and commit.
 
 **Checkpoint**: The "no acknowledged batch is lost" guarantee has a supported recovery path.
 

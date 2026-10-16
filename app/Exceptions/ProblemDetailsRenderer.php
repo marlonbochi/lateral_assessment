@@ -75,6 +75,7 @@ final class ProblemDetailsRenderer
             // Consumer routes authenticate with bearer tokens (RFC 6750 challenge);
             // the webhook throws its own Basic challenge from AuthenticateCms.
             $e instanceof AuthenticationException => [401, 'Authentication is required.', ['WWW-Authenticate' => 'Bearer'], []],
+            $e instanceof BatchNotRetryableException => [409, $e->getMessage(), [], []],
             $e instanceof AuthorizationException => [403, $e->getMessage() ?: 'This action is unauthorized.', [], []],
             $e instanceof ModelNotFoundException => [404, $this->notFoundDetail($e->getModel()), [], []],
             // Laravel converts ModelNotFoundException into NotFoundHttpException

@@ -8,8 +8,10 @@ use App\Casts\JsonObjectList;
 use App\Enums\BatchStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\EventBatchFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use stdClass;
@@ -35,10 +37,23 @@ use stdClass;
 class EventBatch extends Model
 {
     /** @use HasFactory<EventBatchFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, MassPrunable;
 
     /** @var list<string> */
     protected $guarded = ['*'];
+
+    /**
+     * Processed batches are kept for troubleshooting during the retention
+     * period, then pruned. Failed and pending batches are never pruned.
+     *
+     * @return Builder<self>
+     */
+    public function prunable(): Builder
+    {
+        return self::query()
+            ->where('status', BatchStatus::Processed->value)
+            ->where('processed_at', '<', now()->subDays((int) config('cms.batches.retention_days')));
+    }
 
     /**
      * @return BelongsTo<User, $this>
