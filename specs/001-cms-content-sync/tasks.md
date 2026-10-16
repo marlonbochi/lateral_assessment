@@ -988,7 +988,8 @@ deliverable documentation.
   - `APP_DEBUG=false` and `APP_ENV=production` in the `app` image target.
   - Confirm that `.env` is ignored and no secret is in git history, with
     `gitleaks detect --redact` (run locally, and add a `secrets` job to
-    `.github/workflows/ci.yml` using `gitleaks/gitleaks-action`).
+    `.github/workflows/ci.yml` using `gitleaks/gitleaks-action`, with `actions/checkout` set to
+    `fetch-depth: 0` so the full history is scanned, not only the last commit).
   - `composer audit` is clean.
   - Run the `/security-review` skill on the branch and address its findings.
 - [ ] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
