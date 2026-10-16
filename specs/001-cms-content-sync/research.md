@@ -134,6 +134,10 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
   `stdClass`) for validation of shape, then stores each payload as `jsonb` via an encoder that
   preserves `{}` vs `[]`. Validation requires `payload` to be a JSON **object** (not a list) for
   publish/unpublish.
+- **Amendment (implementation)**: payloads do not cross PHP at all on the write path. The
+  inbox stores the validated raw request body (`jsonb`), and the worker copies
+  `events -> i -> 'payload'` into `contents` with SQL, so numbers keep arbitrary precision.
+  PHP decodes only the event metadata (id, version, type, timestamp) to decide precedence.
 - **Where it applies**: everywhere a payload crosses PHP: the request (object decode kept
   alongside the associative decode used by the validator, which cannot traverse `stdClass`),
   the inbox (`event_batches.events` uses an object-preserving list cast, never `array`), the

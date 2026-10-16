@@ -377,7 +377,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
 
 ### Tests for User Story 1 ⚠️ write first, they must fail
 
-- [ ] T029 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedenceTest.php` with a Pest dataset
+- [X] T029 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedenceTest.php` with a Pest dataset
   covering every row of the data-model §1 state machine:
   - no snapshot + publish/unpublish/delete → apply with the target status
   - higher version → apply
@@ -387,13 +387,13 @@ ordered, version-correct batch processing with tombstones and concurrency safety
     (equal → `duplicate`)
   - higher version after delete → apply (re-create)
   - timestamps in the opposite order to versions never change the decision
-- [ ] T030 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedencePermutationTest.php` (SC-001):
+- [X] T030 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedencePermutationTest.php` (SC-001):
   - For 200 random seeds, build a set of events for 1–3 ids with random types and versions
     (with gaps), shuffle them, and duplicate a random subset.
   - Fold them through an in-memory reducer that uses `EventPrecedence`.
   - Assert that each id's final `(status, version)` equals the result of applying only its
     highest-version event.
-- [ ] T031 [P] [US1] Write `tests/Feature/Webhook/CmsAuthenticationTest.php`. Each of these
+- [X] T031 [P] [US1] Write `tests/Feature/Webhook/CmsAuthenticationTest.php`. Each of these
   returns `401` with `WWW-Authenticate: Basic realm="cms-webhook"`, a problem+json body, and no
   `event_batches` row:
   - no `Authorization` header
@@ -404,7 +404,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - server credentials configured empty (fail closed)
 
   Valid credentials → `202`.
-- [ ] T032 [P] [US1] Write `tests/Feature/Webhook/BatchValidationTest.php` as a dataset of
+- [X] T032 [P] [US1] Write `tests/Feature/Webhook/BatchValidationTest.php` as a dataset of
   invalid batches. Each returns `422`, and zero rows exist in `event_batches` and `jobs`.
   Batch-level errors (empty list, more than 100 events, JSON object root, malformed JSON) use
   the key `events`; event-level errors use `events.{i}.{field}`:
@@ -425,7 +425,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - A delete with a payload is accepted.
   - `Content-Type: text/plain` → `415`.
   - A body over `cms.webhook.max_body_bytes` → `413`.
-- [ ] T033 [P] [US1] Write `tests/Feature/Webhook/BatchAcceptanceTest.php`:
+- [X] T033 [P] [US1] Write `tests/Feature/Webhook/BatchAcceptanceTest.php`:
   - `202` body matches `BatchAcknowledgement` (`batch_id` uuid, `status: pending`,
     `event_count`, `received_at`).
   - The `event_batches` row holds the events exactly as sent, in order.
@@ -433,7 +433,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - Atomic hand-off: bind a queue dispatcher that throws after the batch insert → `503`, and
     neither an `event_batches` nor a `jobs` row remains.
   - Database unavailable → `503`.
-- [ ] T034 [P] [US1] Write `tests/Feature/Processing/EventProcessingTest.php` with one named
+- [X] T034 [P] [US1] Write `tests/Feature/Processing/EventProcessingTest.php` with one named
   test per spec US1 acceptance scenario 1–12, each going through the webhook and then
   `drainQueue()`:
   - publish creates
@@ -449,12 +449,12 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - in-batch unpublish v3 → publish v2
   - re-create after delete keeps `is_disabled`
   - version gap 3 → 9 applied
-- [ ] T035 [P] [US1] Write `tests/Feature/Processing/BatchAtomicityTest.php`:
+- [X] T035 [P] [US1] Write `tests/Feature/Processing/BatchAtomicityTest.php`:
   - Inject a failure while applying the 3rd of 5 events (e.g. a listener on the
     `ContentWritten` test hook, or bind a decorator around the writer that throws). Assert that
     no `contents` row changed, the batch is still `pending`, and `attempts` = 1.
   - Assert that after the fault is removed and the job is retried, all 5 events are applied.
-- [ ] T036 [P] [US1] Write `tests/Feature/Processing/PayloadFidelityTest.php`. Each of these
+- [X] T036 [P] [US1] Write `tests/Feature/Processing/PayloadFidelityTest.php`. Each of these
   round-trips byte-equivalent webhook → inbox (`event_batches.events`) → worker → `contents`
   and is read back from the database as JSON:
   - `{}` (top-level empty payload: the batch MUST be processed, not fail the
@@ -466,7 +466,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - large integers within the int64 range
   - floats
   - `null` values inside the payload
-- [ ] T037 [P] [US1] Write `tests/Concurrency/ConcurrentProcessingTest.php` (Pest group
+- [X] T037 [P] [US1] Write `tests/Concurrency/ConcurrentProcessingTest.php` (Pest group
   `concurrency`):
   - Put it in `tests/Concurrency/` (not `Feature/`) and use `DatabaseTruncation`. Child
     processes use their own connections and can only see **committed** data, so the seeded
@@ -482,17 +482,17 @@ ordered, version-correct batch processing with tombstones and concurrency safety
 
 ### Implementation for User Story 1
 
-- [ ] T038 [P] [US1] Create the readonly value objects in `app/Domain/Cms/`:
+- [X] T038 [P] [US1] Create the readonly value objects in `app/Domain/Cms/`:
   - `CmsEvent.php`: `id`, `version` (int), `timestamp` (`DateTimeImmutable`), `type`
     (`CmsEventType`), `?payload` (`stdClass|null`), with named constructor `fromValidated(object
     $raw)`.
   - `ContentSnapshot.php`: `version`, `status`.
   - `EventDecision.php`: `apply` bool, `?IgnoreReason`, `?ContentStatus newStatus`, with
     factories `apply()` and `ignore()`.
-- [ ] T039 [US1] Implement `app/Domain/Cms/EventPrecedence.php::decide(?ContentSnapshot
+- [X] T039 [US1] Implement `app/Domain/Cms/EventPrecedence.php::decide(?ContentSnapshot
   $current, CmsEvent $event): EventDecision`, a pure function per research R6, so that T029 and
   T030 pass.
-- [ ] T040 [P] [US1] Implement `app/Support/Json/JsonPayload.php`:
+- [X] T040 [P] [US1] Implement `app/Support/Json/JsonPayload.php`:
   - `decodeBody(string $json): mixed` uses `json_decode(..., false, 512,
     JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING)`.
   - `encode(stdClass|array $value): string` preserves `{}`.
@@ -504,7 +504,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - Add a unit test `tests/Unit/Support/JsonPayloadTest.php`: `{}` stays `{}`, `[]` stays
     `[]`, nested empty objects survive an encode/decode round-trip, and big integers are
     decoded as strings.
-- [ ] T041 [US1] Implement `app/Http/Middleware/AuthenticateCms.php` and alias it as `auth.cms`
+- [X] T041 [US1] Implement `app/Http/Middleware/AuthenticateCms.php` and alias it as `auth.cms`
   in `bootstrap/app.php`:
   - Parse `Authorization: Basic`.
   - Compare both the username and the password with `hash_equals` against `config('cms.webhook.*')`,
@@ -514,7 +514,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
     realm="cms-webhook"', 'Authentication is required.')`. It carries the `WWW-Authenticate`
     header itself, so T031 passes in US1 without waiting for T064. Make sure
     `ProblemDetailsRenderer` (T023) keeps the exception's headers.
-- [ ] T042 [US1] Implement `app/Http/Requests/Cms/StoreEventBatchRequest.php`:
+- [X] T042 [US1] Implement `app/Http/Requests/Cms/StoreEventBatchRequest.php`:
   - Decode the raw body **twice**, because Laravel's validator only traverses arrays
     (`Arr::dot`), not `stdClass`:
     1. An associative decode (`json_decode(..., true, 512, JSON_THROW_ON_ERROR |
@@ -542,21 +542,22 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - Also add middleware `app/Http/Middleware/EnsureJsonBody.php`:
     - `Content-Type` not `application/json` → 415.
     - `Content-Length` or actual body over the configured max → 413.
-- [ ] T043 [US1] Implement `app/Actions/Cms/AcceptEventBatch.php`. In
+- [X] T043 [US1] Implement `app/Actions/Cms/AcceptEventBatch.php`. In
   `DB::transaction(...)`:
-  - Create the `EventBatch` (`status = pending`, `events` = the **object-decoded** events from
-    `StoreEventBatchRequest::rawEvents()` so payload objects are preserved through the
-    `JsonObjectList` cast, `event_count`, `received_at = now()`, `request_id`).
+  - Create the `EventBatch` (`status = pending`, `events` = the **validated raw request body**,
+    stored as-is through the `JsonObjectList` cast so PHP never re-encodes it, `event_count`,
+    `received_at = now()`, `request_id`). Implementation note: this replaces "object-decoded
+    events" for even higher fidelity (exact numbers; see research R8).
   - Dispatch `ProcessEventBatchJob` with `->onConnection(config('cms.queue.connection'))
     ->onQueue(config('cms.queue.name'))`, **not** `afterCommit` (research R2; add a code comment
     explaining why).
   - Return the batch.
-- [ ] T044 [US1] Implement the invokable `app/Http/Controllers/Cms/EventBatchController.php`
+- [X] T044 [US1] Implement the invokable `app/Http/Controllers/Cms/EventBatchController.php`
   (`StoreEventBatchRequest` → `AcceptEventBatch` → `202` JSON `{data: {batch_id, status,
   event_count, received_at}}`). Register the route `POST /cms/events` in `routes/cms.php` with
   middleware `['auth.cms', EnsureJsonBody::class]`. `throttle:cms-webhook` is applied once,
   at the route-file level in T024; don't repeat it here.
-- [ ] T045 [US1] Implement `app/Actions/Cms/ProcessEventBatch.php::handle(EventBatch $batch):
+- [X] T045 [US1] Implement `app/Actions/Cms/ProcessEventBatch.php::handle(EventBatch $batch):
   BatchResult` in `DB::transaction(..., attempts: 3)`:
   1. Re-select the batch `lockForUpdate()` and return early if it is `processed`.
   2. For each distinct `cms_id` sorted ascending, run `SELECT
@@ -566,13 +567,15 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   4. For each event in order: load the snapshot (`select version, status from contents where
      cms_id = ?`), call `EventPrecedence::decide`, and on apply write **only** CMS-owned columns
      (`version`, `status`, `payload` — null for delete, `cms_timestamp`, `synced_at = now()`)
-     using insert-or-update with guard `WHERE contents.version < :incoming`. Never touch
+     using insert-or-update with guard `WHERE contents.version < :incoming`. The payload is
+     copied inside PostgreSQL from the inbox (`events -> i -> 'payload'`), so it never
+     round-trips through PHP. Never touch
      `is_disabled`, `disabled_at` or `disabled_by`.
   5. Update the batch to `processed` with `applied_count`, `ignored_count` and
      `processed_at`.
 
   Also create the readonly `app/Domain/Cms/BatchResult.php`.
-- [ ] T046 [US1] Implement `app/Jobs/ProcessEventBatchJob.php`:
+- [X] T046 [US1] Implement `app/Jobs/ProcessEventBatchJob.php`:
   - `ShouldQueue`, constructor `public readonly string $batchId`.
   - `tries(): int` and `backoff(): array` methods read `config('cms.processing.*')`. These
     must be methods: PHP property defaults can't call functions.
@@ -580,12 +583,12 @@ ordered, version-correct batch processing with tombstones and concurrency safety
     processes.
   - `failed(Throwable)` sets `status = failed`, `failed_at`, and a sanitized `last_error`
     (exception class + message truncated to 1000 chars; never event payloads).
-- [ ] T047 [US1] Add the artisan test-support command
+- [X] T047 [US1] Add the artisan test-support command
   `app/Console/Commands/ProcessBatchOnce.php` (`cms:batches:process {id}`, hidden; prints the
   connected database name when run with `-v`), used by T037 to run `ProcessEventBatch` in a
   separate process, and the sample webhook body
   `docs/examples/batch.json` (the brief's 3-event example).
-- [ ] T048 [US1] Run the whole US1 suite plus `make lint` until green, and commit.
+- [X] T048 [US1] Run the whole US1 suite plus `make lint` until green, and commit.
 
 **Checkpoint**: The MVP ingestion pipeline is complete. Every mandatory processing scenario
 (duplicates, out-of-order, unpublish edge case, delete protection) passes.

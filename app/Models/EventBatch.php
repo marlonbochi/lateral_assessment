@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\JsonObjectList;
 use App\Enums\BatchStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\EventBatchFactory;
@@ -11,13 +12,14 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use stdClass;
 
 /**
  * An acknowledged CMS delivery in the durable inbox.
  *
  * @property string $id
  * @property BatchStatus $status
- * @property mixed $events
+ * @property list<stdClass> $events
  * @property int $event_count
  * @property int $attempts
  * @property int|null $applied_count
@@ -47,9 +49,8 @@ class EventBatch extends Model
     }
 
     /**
-     * `events` is intentionally not cast with `array`: that cast would turn
-     * empty JSON objects ({}) into lists ([]). An object-preserving cast is
-     * added with the payload handling (T040).
+     * `events` uses an object-preserving cast; the `array` cast would turn
+     * empty JSON objects ({}) into lists ([]).
      *
      * @return array<string, string>
      */
@@ -57,6 +58,7 @@ class EventBatch extends Model
     {
         return [
             'status' => BatchStatus::class,
+            'events' => JsonObjectList::class,
             'event_count' => 'integer',
             'attempts' => 'integer',
             'applied_count' => 'integer',

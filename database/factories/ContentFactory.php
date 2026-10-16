@@ -22,10 +22,10 @@ class ContentFactory extends Factory
             'cms_id' => 'content-'.fake()->unique()->numberBetween(1, 9_999_999),
             'version' => fake()->numberBetween(1, 50),
             'status' => ContentStatus::Published,
-            'payload' => json_encode([
+            'payload' => (object) [
                 'title' => fake()->sentence(4),
                 'description' => fake()->paragraph(),
-            ], JSON_THROW_ON_ERROR),
+            ],
             'cms_timestamp' => now()->subMinutes(fake()->numberBetween(1, 600)),
             'synced_at' => now(),
             'is_disabled' => false,

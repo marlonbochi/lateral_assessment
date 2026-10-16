@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\JsonObjectPayload;
 use App\Enums\ContentStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\ContentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use stdClass;
 
 /**
  * Local replica of one CMS entity.
@@ -21,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $cms_id
  * @property int $version
  * @property ContentStatus $status
- * @property mixed $payload
+ * @property stdClass|null $payload
  * @property CarbonImmutable $cms_timestamp
  * @property CarbonImmutable $synced_at
  * @property bool $is_disabled
@@ -64,6 +66,7 @@ class Content extends Model
         return [
             'version' => 'integer',
             'status' => ContentStatus::class,
+            'payload' => JsonObjectPayload::class,
             'cms_timestamp' => 'immutable_datetime',
             'synced_at' => 'immutable_datetime',
             'is_disabled' => 'boolean',
