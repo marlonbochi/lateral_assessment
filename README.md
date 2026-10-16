@@ -28,9 +28,12 @@ content without touching CMS-managed data.
 |-----------------|----------------------------------------------------------|
 | Language        | PHP 8.3+ (developed on 8.4)                              |
 | Framework       | Laravel 13.x (latest stable)                             |
-| Database        | PostgreSQL 16+                                           |
+| Database        | PostgreSQL 18                                            |
 | Runtime         | Docker Compose                                           |
-| Quality gates   | Pint (style), Larastan (static analysis), automated tests |
+| Auth            | HTTP Basic (CMS), Laravel Sanctum bearer tokens (consumers) |
+| Queue           | Laravel database queue on PostgreSQL (transactional inbox) |
+| Testing         | Pest 5 (unit, feature, concurrency, architecture)        |
+| Quality gates   | Pint (style), Larastan (static analysis)                 |
 | CI              | GitHub Actions                                           |
 
 ## Documentation map
@@ -40,9 +43,11 @@ content without touching CMS-managed data.
 | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Non-negotiable engineering principles for this project |
 | [`specs/001-cms-content-sync/spec.md`](specs/001-cms-content-sync/spec.md) | Feature specification: user stories, requirements, edge cases, success criteria |
 | [`specs/001-cms-content-sync/checklists/requirements.md`](specs/001-cms-content-sync/checklists/requirements.md) | Specification quality checklist |
-
-The implementation plan, data model, API contract (OpenAPI), and architecture decisions will be
-added under `specs/001-cms-content-sync/` during the planning phase and summarized here.
+| [`specs/001-cms-content-sync/plan.md`](specs/001-cms-content-sync/plan.md) | Implementation plan, project structure, processing flow |
+| [`specs/001-cms-content-sync/research.md`](specs/001-cms-content-sync/research.md) | Technical decisions, trade-offs, and known limitations |
+| [`specs/001-cms-content-sync/data-model.md`](specs/001-cms-content-sync/data-model.md) | Tables, constraints, indexes, and state machines |
+| [`specs/001-cms-content-sync/contracts/openapi.yaml`](specs/001-cms-content-sync/contracts/openapi.yaml) | OpenAPI 3.1 contract for the webhook and consumer API |
+| [`specs/001-cms-content-sync/quickstart.md`](specs/001-cms-content-sync/quickstart.md) | End-to-end validation scenarios |
 
 ## How this project is built
 
@@ -52,7 +57,7 @@ This repository follows **Spec-Driven Development** with
 1. `constitution` — project principles ([done](.specify/memory/constitution.md))
 2. `specify` — what and why ([done](specs/001-cms-content-sync/spec.md))
 3. `clarify` — resolve ambiguities ([done](specs/001-cms-content-sync/spec.md#clarifications))
-4. `plan` — architecture, data model, contracts
+4. `plan` — architecture, data model, contracts ([done](specs/001-cms-content-sync/plan.md))
 5. `tasks` — ordered, testable work items
 6. `analyze` — cross-artifact consistency check
 7. `implement` — test-first implementation
@@ -60,7 +65,7 @@ This repository follows **Spec-Driven Development** with
 ## Roadmap
 
 - [x] Constitution and feature specification
-- [ ] Implementation plan, data model, OpenAPI contract
+- [x] Implementation plan, data model, OpenAPI contract
 - [ ] Laravel application, migrations, and Docker environment
 - [ ] Webhook ingestion and event processing
 - [ ] Consumer API and administrator overrides

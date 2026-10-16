@@ -8,6 +8,16 @@ Laravel service that ingests CMS webhook events, keeps a version-correct replica
 PostgreSQL, and exposes it through a secure REST API. This is a take-home challenge for an
 international Senior PHP Engineer position.
 
+## Stack & key design (see `specs/001-cms-content-sync/plan.md` and `research.md`)
+
+- PHP 8.4 (`^8.3`), Laravel 13, Sanctum 4, PostgreSQL 18, Pest 5, Larastan 3, Pint.
+- Docker Compose: nginx + php-fpm `app`, `worker` (queue), `scheduler`, `postgres`.
+- Webhook → transactional inbox (`event_batches` + `jobs` in one transaction) → `202`;
+  worker applies batches atomically with sorted `pg_advisory_xact_lock` per content id.
+- Precedence lives in the pure `app/Domain/Cms/EventPrecedence` (no Illuminate imports).
+- Consumer API: `/api/v1/contents` (role-aware), `PUT|DELETE /contents/{id}/disabled`,
+  `/api/v1/admin/event-batches`; RFC 9457 problem details; contract in `contracts/openapi.yaml`.
+
 ## Ground rules
 
 - **Everything in English**: code, comments, commit messages, docs, specs, API messages.

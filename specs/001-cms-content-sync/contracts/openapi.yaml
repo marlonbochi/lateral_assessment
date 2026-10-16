@@ -1,0 +1,645 @@
+openapi: 3.1.0
+info:
+  title: CMS Content Sync Service API
+  version: 1.0.0
+  summary: CMS webhook ingestion and consumer REST API for synchronized content.
+  description: |
+    Three actors use this API, each with its own credentials:
+
+    | Actor | Authentication | Can access |
+    |---|---|---|
+    | CMS | HTTP Basic (credentials from environment) | `POST /cms/events` only |
+    | User | Bearer token (role `user`) | Published, enabled content |
+    | Administrator | Bearer token (role `admin`) | All non-deleted content, local overrides, event batches |
+
+    CMS credentials are never accepted on consumer routes and bearer tokens are never accepted
+    on the webhook (both return `401`).
+
+    **Processing model.** The webhook validates the whole batch synchronously and rejects it
+    with `422` if any event is invalid (nothing is stored). A valid batch is durably recorded and
+    queued in one transaction and acknowledged with `202`; it is applied asynchronously, so
+    content becomes visible to consumers shortly after acknowledgement (eventual consistency).
+
+    **Errors** use RFC 9457 Problem Details (`application/problem+json`).
+
+    **Timestamps** are RFC 3339 in UTC. **Field names** are snake_case.
+servers:
+  - url: http://localhost:8080
+    description: Local Docker Compose environment
+
+tags:
+  - name: Webhook
+    description: CMS event ingestion.
+  - name: Contents
+    description: Synchronized content for users and administrators.
+  - name: Local overrides
+    description: Administrator-only local disable / re-enable.
+  - name: Event batches
+    description: Administrator-only inspection and recovery of ingested batches.
+  - name: Health
+    description: Liveness probe.
+
+paths:
+  /cms/events:
+    post:
+      tags: [Webhook]
+      operationId: ingestCmsEvents
+      summary: Ingest a batch of CMS events
+      description: |
+        Accepts 1–100 events. The whole batch is validated first; if any event is invalid the
+        batch is rejected and nothing is stored. A valid batch is stored and queued atomically,
+        then acknowledged with `202 Accepted`.
+
+        Processing rules (applied asynchronously, per entity):
+        - Precedence is decided by `version` only; timestamps never decide order.
+        - Events with `version <=` the latest accepted version are ignored (duplicate/stale).
+        - `publish` → content stored and published; `unpublish` → content stored, hidden from
+          users; `delete` → content removed, tombstone keeps the version so older events
+          cannot restore it. A newer event after a delete re-creates the content.
+        - Events in a batch are applied atomically, in the order received.
+      security:
+        - cmsBasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CmsEventBatch'
+            examples:
+              mixed:
+                summary: Publish, unpublish and delete
+                value:
+                  - type: publish
+                    id: content-123
+                    version: 2
+                    timestamp: '2026-01-01T10:00:00Z'
+                    payload: { title: Example content, description: Some content }
+                  - type: unpublish
+                    id: content-456
+                    version: 4
+                    timestamp: '2026-01-01T10:05:00Z'
+                    payload: { title: Updated content, description: New information }
+                  - type: delete
+                    id: content-789
+                    version: 5
+                    timestamp: '2026-01-01T10:10:00Z'
+      responses:
+        '202':
+          description: Batch durably recorded and scheduled for processing.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BatchAcknowledgement'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/v1/contents:
+    get:
+      tags: [Contents]
+      operationId: listContents
+      summary: List content visible to the caller
+      description: |
+        - **User**: only `published` content that is not locally disabled.
+        - **Administrator**: `published` and `unpublished` content, including disabled items.
+        - Deleted content is never returned.
+
+        Ordered by `synced_at` descending, then `id` descending. Cursor pagination by default;
+        send `page` to use page-number pagination with totals. `cursor` and `page` are mutually
+        exclusive. The `status` and `disabled` filters are administrator-only (`403` for users).
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
+        - name: status
+          in: query
+          required: false
+          description: Administrator-only. Filter by CMS publication status.
+          schema: { type: string, enum: [published, unpublished] }
+        - name: disabled
+          in: query
+          required: false
+          description: Administrator-only. Filter by local disabled flag.
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: A page of content.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ContentCursorPage'
+                  - $ref: '#/components/schemas/ContentNumberedPage'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/contents/{contentId}:
+    get:
+      tags: [Contents]
+      operationId: getContent
+      summary: Retrieve one content item by its CMS identifier
+      description: |
+        Returns `404` when the item is unknown, deleted, or not visible to the caller
+        (unpublished or disabled for users) — the response is identical in all cases.
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/ContentId'
+      responses:
+        '200':
+          description: The content item. Administrators also receive `status` and `local_override`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/Content'
+                      - $ref: '#/components/schemas/AdminContent'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/contents/{contentId}/disabled:
+    put:
+      tags: [Local overrides]
+      operationId: disableContent
+      summary: Locally disable a content item (administrator)
+      description: |
+        Hides the item from regular users without changing any CMS-managed data. Idempotent.
+        The flag is independent of CMS state and is not reset by later publish/unpublish events.
+        Regular users always receive `403` (before the id is resolved, so existence is not leaked).
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/ContentId'
+      responses:
+        '200':
+          description: The content item after the change.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AdminContent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    delete:
+      tags: [Local overrides]
+      operationId: enableContent
+      summary: Re-enable a locally disabled content item (administrator)
+      description: |
+        Removes the local override. The item becomes visible to users again only if it is
+        currently published. Idempotent.
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/ContentId'
+      responses:
+        '200':
+          description: The content item after the change.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AdminContent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/admin/event-batches:
+    get:
+      tags: [Event batches]
+      operationId: listEventBatches
+      summary: List ingested event batches (administrator)
+      description: Ordered by `received_at` descending. Cursor pagination. Payloads are never exposed.
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [pending, processed, failed] }
+      responses:
+        '200':
+          description: A page of batches.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventBatchCursorPage' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/admin/event-batches/{batchId}:
+    get:
+      tags: [Event batches]
+      operationId: getEventBatch
+      summary: Retrieve one event batch with its event summary (administrator)
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+      responses:
+        '200':
+          description: The batch and an event summary (no payloads).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EventBatchDetail' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/admin/event-batches/{batchId}/retry:
+    post:
+      tags: [Event batches]
+      operationId: retryEventBatch
+      summary: Re-process a failed event batch (administrator)
+      description: |
+        Only batches in the `failed` state can be retried; the batch returns to `pending`,
+        its attempt counter is reset, and a new processing job is queued atomically.
+        Version-precedence rules are applied against the current content state.
+      security:
+        - bearerToken: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+      responses:
+        '202':
+          description: Re-processing scheduled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EventBatch' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /up:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Liveness probe (unauthenticated, exposes no data)
+      security: []
+      responses:
+        '200': { description: Application is up. }
+        '500': { description: Application is not healthy. }
+
+components:
+  securitySchemes:
+    cmsBasicAuth:
+      type: http
+      scheme: basic
+      description: CMS-only credentials from `CMS_WEBHOOK_USERNAME` / `CMS_WEBHOOK_PASSWORD`.
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: |
+        Opaque personal access token (Laravel Sanctum) issued to a consumer account with
+        role `user` or `admin` by `php artisan consumer:token`. Prefixed with `cms_`.
+
+  parameters:
+    ContentId:
+      name: contentId
+      in: path
+      required: true
+      description: CMS content identifier.
+      schema: { $ref: '#/components/schemas/CmsId' }
+    BatchId:
+      name: batchId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PerPage:
+      name: per_page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from `meta.next_cursor` / `meta.prev_cursor`. Not combinable with `page`.
+      schema: { type: string }
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Switches to page-number pagination (with totals). Not combinable with `cursor`.
+      schema: { type: integer, minimum: 1 }
+
+  schemas:
+    CmsId:
+      type: string
+      minLength: 1
+      maxLength: 255
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]*$'
+      examples: [content-123]
+
+    CmsEvent:
+      type: object
+      required: [type, id, version, timestamp]
+      properties:
+        type:
+          type: string
+          enum: [publish, unpublish, delete]
+        id: { $ref: '#/components/schemas/CmsId' }
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Strict JSON integer; numeric strings and floats are rejected.
+        timestamp:
+          type: string
+          format: date-time
+          description: Informational only; never used for precedence.
+        payload:
+          type: object
+          additionalProperties: true
+          description: Arbitrary JSON object. Required for publish/unpublish; ignored for delete.
+      allOf:
+        - if:
+            properties: { type: { enum: [publish, unpublish] } }
+          then:
+            required: [payload]
+
+    CmsEventBatch:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items: { $ref: '#/components/schemas/CmsEvent' }
+
+    BatchAcknowledgement:
+      type: object
+      required: [batch_id, status, event_count, received_at]
+      properties:
+        batch_id: { type: string, format: uuid }
+        status: { type: string, const: pending }
+        event_count: { type: integer, minimum: 1, maximum: 100 }
+        received_at: { type: string, format: date-time }
+      examples:
+        - batch_id: 0199f0a2-6c1e-7b3a-9d1e-2f4b5c6d7e8f
+          status: pending
+          event_count: 3
+          received_at: '2026-10-16T12:00:00Z'
+
+    Content:
+      type: object
+      description: Content as seen by a regular user.
+      required: [id, version, content, cms_updated_at, synced_at]
+      properties:
+        id: { $ref: '#/components/schemas/CmsId' }
+        version: { type: integer, format: int64, minimum: 1 }
+        content:
+          type: object
+          additionalProperties: true
+          description: CMS payload exactly as received.
+        cms_updated_at:
+          type: string
+          format: date-time
+          description: Timestamp carried by the last applied CMS event.
+        synced_at:
+          type: string
+          format: date-time
+          description: When this service last applied a change to the item.
+      examples:
+        - id: content-123
+          version: 2
+          content: { title: Example content, description: Some content }
+          cms_updated_at: '2026-01-01T10:00:00Z'
+          synced_at: '2026-10-16T12:00:01Z'
+
+    AdminContent:
+      description: Content as seen by an administrator.
+      allOf:
+        - $ref: '#/components/schemas/Content'
+        - type: object
+          required: [status, local_override]
+          properties:
+            status:
+              type: string
+              enum: [published, unpublished]
+            local_override:
+              type: object
+              required: [disabled]
+              properties:
+                disabled: { type: boolean }
+                changed_at: { type: [string, 'null'], format: date-time }
+                changed_by: { type: [integer, 'null'], description: Consumer account id. }
+
+    CursorMeta:
+      type: object
+      required: [pagination, per_page, next_cursor, prev_cursor]
+      properties:
+        pagination: { type: string, const: cursor }
+        per_page: { type: integer }
+        next_cursor: { type: [string, 'null'] }
+        prev_cursor: { type: [string, 'null'] }
+
+    NumberedMeta:
+      type: object
+      required: [pagination, current_page, per_page, total, last_page]
+      properties:
+        pagination: { type: string, const: page }
+        current_page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+        last_page: { type: integer }
+
+    Links:
+      type: object
+      properties:
+        first: { type: [string, 'null'], format: uri }
+        last: { type: [string, 'null'], format: uri }
+        prev: { type: [string, 'null'], format: uri }
+        next: { type: [string, 'null'], format: uri }
+
+    ContentCursorPage:
+      type: object
+      required: [data, meta, links]
+      properties:
+        data:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/Content'
+              - $ref: '#/components/schemas/AdminContent'
+        meta: { $ref: '#/components/schemas/CursorMeta' }
+        links: { $ref: '#/components/schemas/Links' }
+
+    ContentNumberedPage:
+      type: object
+      required: [data, meta, links]
+      properties:
+        data:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/Content'
+              - $ref: '#/components/schemas/AdminContent'
+        meta: { $ref: '#/components/schemas/NumberedMeta' }
+        links: { $ref: '#/components/schemas/Links' }
+
+    EventBatch:
+      type: object
+      required: [id, status, event_count, attempts, received_at]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, processed, failed] }
+        event_count: { type: integer }
+        attempts: { type: integer }
+        applied_count: { type: [integer, 'null'] }
+        ignored_count: { type: [integer, 'null'] }
+        last_error: { type: [string, 'null'] }
+        received_at: { type: string, format: date-time }
+        processed_at: { type: [string, 'null'], format: date-time }
+        failed_at: { type: [string, 'null'], format: date-time }
+        retried_at: { type: [string, 'null'], format: date-time }
+
+    EventBatchDetail:
+      allOf:
+        - $ref: '#/components/schemas/EventBatch'
+        - type: object
+          required: [events]
+          properties:
+            events:
+              type: array
+              description: Event summary in received order. Payloads are never included.
+              items:
+                type: object
+                required: [position, id, type, version, timestamp]
+                properties:
+                  position: { type: integer, minimum: 0 }
+                  id: { $ref: '#/components/schemas/CmsId' }
+                  type: { type: string, enum: [publish, unpublish, delete] }
+                  version: { type: integer, format: int64 }
+                  timestamp: { type: string, format: date-time }
+
+    EventBatchCursorPage:
+      type: object
+      required: [data, meta, links]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EventBatch' }
+        meta: { $ref: '#/components/schemas/CursorMeta' }
+        links: { $ref: '#/components/schemas/Links' }
+
+    ProblemDetails:
+      type: object
+      description: RFC 9457 Problem Details.
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, examples: ['about:blank'] }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri-reference }
+
+    ValidationProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: object
+              description: Field path → list of messages. Webhook paths use the event index, e.g. `events.2.version`.
+              additionalProperties:
+                type: array
+                items: { type: string }
+
+  responses:
+    Unauthenticated:
+      description: Missing or invalid credentials.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string }
+          description: '`Basic realm="cms-webhook"` on the webhook, `Bearer` on consumer routes.'
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example: { type: 'about:blank', title: Unauthorized, status: 401, detail: Authentication is required. }
+    Forbidden:
+      description: Authenticated, but the role does not allow this operation.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example: { type: 'about:blank', title: Forbidden, status: 403, detail: This action requires the admin role. }
+    NotFound:
+      description: Unknown, deleted, or not visible to the caller.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example: { type: 'about:blank', title: Not Found, status: 404, detail: Content not found. }
+    Conflict:
+      description: The resource is not in a state that allows this operation.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example: { type: 'about:blank', title: Conflict, status: 409, detail: Only failed batches can be retried. }
+    PayloadTooLarge:
+      description: Request body exceeds the configured limit.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    UnsupportedMediaType:
+      description: Body is not `application/json`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    ValidationFailed:
+      description: Invalid input. For the webhook, the whole batch is rejected and nothing is stored.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ValidationProblemDetails' }
+          example:
+            type: 'about:blank'
+            title: Unprocessable Content
+            status: 422
+            detail: The batch is invalid; no events were accepted.
+            errors:
+              events.2.version: [The version must be a positive integer.]
+    TooManyRequests:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    ServiceUnavailable:
+      description: The batch could not be durably recorded; the CMS should retry.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
