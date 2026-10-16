@@ -67,3 +67,17 @@ it('rate limits webhook deliveries', function (): void {
 
     expect(EventBatch::query()->count())->toBe(2);
 });
+
+it('answers 401 problem details to clients that do not send Accept: application/json', function (array $headers): void {
+    // Regression: without a JSON Accept header Laravel's auth middleware tried to
+    // redirect guests to a non-existent "login" route and answered 500.
+    $response = Pest\Laravel\call('GET', '/api/v1/contents', [], [], [], $headers);
+
+    $response->assertUnauthorized()
+        ->assertHeader('Content-Type', 'application/problem+json')
+        ->assertHeader('WWW-Authenticate', 'Bearer');
+})->with([
+    'no headers at all' => [[]],
+    'CMS Basic credentials' => [fn (): array => ['HTTP_AUTHORIZATION' => cmsAuthHeaders()['Authorization']]],
+    'browser-like Accept' => [['HTTP_ACCEPT' => 'text/html']],
+]);

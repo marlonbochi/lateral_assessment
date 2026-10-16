@@ -1002,7 +1002,7 @@ deliverable documentation.
   - architecture summary linking `docs/architecture.md`
   - known limitations
   - how it was built with Spec Kit
-- [ ] T095 Security hardening pass:
+- [X] T095 Security hardening pass:
   - `APP_DEBUG=false` and `APP_ENV=production` in the `app` image target.
   - Confirm that `.env` is ignored and no secret is in git history, with
     `gitleaks detect --redact` (run locally, and add a `secrets` job to
@@ -1013,7 +1013,7 @@ deliverable documentation.
 - [X] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
   `app/Domain`, and add the missing tests. Then enable the gate in
   `.github/workflows/ci.yml` (`--coverage --min=85`) and in `make ci`.
-- [ ] T097 Run every scenario in `specs/001-cms-content-sync/quickstart.md` (S1–S13) manually
+- [X] T097 Run every scenario in `specs/001-cms-content-sync/quickstart.md` (S1–S13) manually
   against the Docker stack, and fix any discrepancy between the docs, the contract and the
   behaviour. Run `make perf` (self-seeding 100k rows, `tests/Performance`) and
   record the measured ack/processing times and p95 latencies in the README.

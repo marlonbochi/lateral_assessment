@@ -31,6 +31,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
 
+        // Stateless API: never redirect unauthenticated requests to a login page
+        // (there is none), whatever the client's Accept header. The resulting
+        // AuthenticationException is rendered as a 401 problem details response.
+        $middleware->redirectGuestsTo(fn (): ?string => null);
+
         $middleware->alias([
             'auth.cms' => AuthenticateCms::class,
             'role' => EnsureRole::class,

@@ -55,7 +55,8 @@ RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
     && apk del .build-deps \
     && echo "pcov.enabled=1" > /usr/local/etc/php/conf.d/zz-pcov.ini \
     && echo "pcov.directory=/var/www/html/app" >> /usr/local/etc/php/conf.d/zz-pcov.ini \
-    && echo "opcache.validate_timestamps=1" > /usr/local/etc/php/conf.d/zz-opcache-dev.ini
+    # Must sort after zz-opcache.ini so it overrides validate_timestamps=0 in dev.
+    && echo "opcache.validate_timestamps=1" > /usr/local/etc/php/conf.d/zzz-opcache-dev.ini
 
 EXPOSE 9000
 CMD ["php-fpm"]

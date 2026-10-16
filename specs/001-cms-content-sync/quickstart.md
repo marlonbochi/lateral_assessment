@@ -10,7 +10,7 @@ This guide proves the feature works end to end. Commands assume the repository r
 
 - Docker 24+ with Docker Compose v2
 - `curl` and `jq` (for the manual scenarios)
-- Free ports: `8080` (HTTP) and `5432` (PostgreSQL; configurable)
+- Free ports: `8080` (HTTP, `APP_PORT`) and `54329` (PostgreSQL on the host, `DB_FORWARD_PORT`)
 
 ## 1. Boot the environment
 
