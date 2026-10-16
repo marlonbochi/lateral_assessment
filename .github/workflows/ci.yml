@@ -23,11 +23,6 @@ jobs:
           extensions: pdo_pgsql, intl
           coverage: none
           tools: composer:v2
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ hashFiles('composer.lock') }}
       - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: composer audit
@@ -44,11 +39,6 @@ jobs:
           extensions: pdo_pgsql, intl
           coverage: none
           tools: composer:v2
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ hashFiles('composer.lock') }}
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
@@ -84,11 +74,6 @@ jobs:
           extensions: pdo_pgsql, pgsql, intl, pcntl
           coverage: pcov
           tools: composer:v2
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: php artisan migrate --env=testing --force
       - name: Test suite
