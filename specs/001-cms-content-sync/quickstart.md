@@ -22,7 +22,10 @@ make setup                      # creates .env from .env.example if missing, bui
 Then set real values for `CMS_WEBHOOK_USERNAME` / `CMS_WEBHOOK_PASSWORD` in `.env` and run
 `make up` to apply them.
 
-Expected: `curl -s -o /dev/null -w '%{http_code}' localhost:8080/up` prints `200`.
+Expected: `curl -s -o /dev/null -w '%{http_code}' localhost:8080/up` prints `401`: every
+endpoint, including the health check, requires authentication. With a consumer token from
+step 2, `curl -H "Authorization: Bearer $USER_TOKEN" localhost:8080/up` returns
+`{"status":"up"}`.
 
 ## 2. Provision consumers and tokens
 

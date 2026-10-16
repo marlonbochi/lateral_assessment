@@ -13,7 +13,7 @@ const MATRIX_BATCH_ID = '0199f0a2-6c1e-7b3a-9d1e-2f4b5c6d7e8f';
 
 /*
  * Every endpoint × every actor → expected status (SC-004). Later phases append
- * rows for their endpoints; T098 checks that all 8 endpoints are covered.
+ * rows for their endpoints; T098 checks that all endpoints are covered.
  */
 
 /**
@@ -40,6 +40,7 @@ function accessMatrix(): array
     $endpoints = [
         // [method, uri, [anonymous, cms, user, admin]]
         ['POST', '/cms/events', [401, 202, 401, 401]],
+        ['GET', '/up', [401, 401, 200, 200]],
         ['GET', '/api/v1/contents', [401, 401, 200, 200]],
         ['GET', '/api/v1/contents/content-1', [401, 401, 200, 200]],
         // US3: administrator filters and local overrides.

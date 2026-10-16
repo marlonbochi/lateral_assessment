@@ -75,3 +75,10 @@ it('documents the event batch endpoints', function (): void {
     assertConforms('POST', '/api/v1/admin/event-batches/{batchId}/retry', postJson("/api/v1/admin/event-batches/{$failed->id}/retry")->assertAccepted());
     assertConforms('POST', '/api/v1/admin/event-batches/{batchId}/retry', postJson("/api/v1/admin/event-batches/{$processed->id}/retry")->assertConflict());
 });
+
+it('documents the authenticated health check', function (): void {
+    assertConforms('GET', '/up', getJson('/up')->assertUnauthorized());
+
+    actingAsRole(Role::User);
+    assertConforms('GET', '/up', getJson('/up')->assertOk());
+});

@@ -23,7 +23,7 @@ content locally without touching CMS-managed data.
   revocable bearer tokens. Every role decision goes through one gate.
 - **Exact payloads.** CMS payloads are stored exactly as received (`{}` stays `{}`, numbers keep
   their precision) and are never logged.
-- **Quality gates.** 535 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
+- **Quality gates.** 545 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
   OpenAPI conformance tests, and CI on PHP 8.3 and 8.4.
 
 ## Quick start
@@ -54,10 +54,11 @@ docker compose exec app php artisan consumer:token admin@example.test
 docker compose exec app php artisan consumer:token reader@example.test
 ```
 
-Check that the service is up:
+Check that the service is up. Every endpoint is protected, including this one, so use a
+consumer token:
 
 ```bash
-curl -i http://localhost:8080/up
+curl -i -H "Authorization: Bearer $USER_TOKEN" http://localhost:8080/up
 ```
 
 ## Using the API
@@ -118,6 +119,8 @@ Errors use **RFC 9457 Problem Details** (`application/problem+json`). Validation
     per-client identity or revocation).
 - The two credential types never overlap: Basic credentials on the API and tokens on the
   webhook both get `401`.
+- **Every endpoint is protected**, as the brief requires. That includes the `GET /up` health
+  check, which answers `{"status":"up"}` only to an authenticated consumer.
 
 ## Synchronous vs asynchronous processing
 

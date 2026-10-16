@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Exceptions\ProblemDetailsRenderer;
+use App\Http\Controllers\HealthController;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\AuthenticateCms;
 use App\Http\Middleware\EnsureRole;
@@ -22,10 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
-        health: '/up',
         apiPrefix: 'api',
         then: function (): void {
             Route::middleware('throttle:cms-webhook')->group(base_path('routes/cms.php'));
+
+            // Authenticated liveness check (no endpoint is anonymous).
+            Route::middleware(['api', 'auth:sanctum', 'throttle:api'])
+                ->get('/up', HealthController::class)
+                ->name('health');
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

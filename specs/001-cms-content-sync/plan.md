@@ -51,10 +51,10 @@ worker; consumer list/detail p95 < 300 ms with 100k content rows (SC-005, SC-006
 
 **Constraints**: All-or-nothing batches; precedence by version only; no secrets in the repo; no
 payloads or credentials in logs; tests never touch the dev database; every endpoint
-authenticated (except `/up`)
+authenticated, including the `/up` health check
 
 **Scale/Scope**: About 100k content items, batches of ≤ 100 events, a single CMS sender, tens of
-consumer accounts; 8 HTTP endpoints (+ `/up`), 6 public artisan commands (+ 1 hidden
+consumer accounts; 8 HTTP endpoints (+ the authenticated `/up` health check), 6 public artisan commands (+ 1 hidden
 test-support command)
 
 ## Constitution Check

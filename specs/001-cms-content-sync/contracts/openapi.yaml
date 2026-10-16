@@ -37,7 +37,7 @@ tags:
   - name: Event batches
     description: Administrator-only inspection and recovery of ingested batches.
   - name: Health
-    description: Liveness probe.
+    description: Authenticated liveness check.
 
 paths:
   /cms/events:
@@ -310,11 +310,24 @@ paths:
     get:
       tags: [Health]
       operationId: health
-      summary: Liveness probe (unauthenticated, exposes no data)
-      security: []
+      summary: Liveness check (any authenticated consumer)
+      description: |
+        Like every other endpoint it requires authentication: a consumer bearer token
+        (role `user` or `admin`). CMS credentials are not accepted.
+      security:
+        - bearerToken: []
       responses:
-        '200': { description: Application is up. }
-        '500': { description: Application is not healthy. }
+        '200':
+          description: Application is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: up }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
 components:
   securitySchemes:

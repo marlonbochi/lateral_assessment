@@ -140,6 +140,8 @@ The main design points:
 - Admin routes are authorized before route-model binding, so a regular user gets an identical
   `403` whether or not the id exists. Hidden and unknown content both return the same `404`.
 - No endpoint can modify CMS-owned columns. A test asserts the complete list of write routes.
+- No endpoint is anonymous, not even the `GET /up` health check: it requires a consumer token,
+  and the access matrix test covers it.
 - Rate limits are applied per token (API) and per IP (webhook). Request bodies are limited to
   1 MiB.
 

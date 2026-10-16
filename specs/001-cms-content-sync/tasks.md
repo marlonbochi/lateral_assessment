@@ -314,6 +314,8 @@ every story.
     - `QueryException` / `PDOException` during webhook acceptance → 503
     - everything else → 500, with no trace unless `app.debug`
 - [X] T024 Configure routing in `bootstrap/app.php`:
+  - Implementation note: `/up` was later moved behind `auth:sanctum` (the brief requires every
+    endpoint to be protected); it is registered in `then:` with `HealthController`, not `health:`.
   - `withRouting(api: routes/api.php, apiPrefix: 'api', health: '/up', then:` register
     `routes/cms.php` with **no** `api` middleware group except `throttle:cms-webhook`)`.
   - `routes/api.php` wraps everything in `Route::prefix('v1')->middleware(['auth:sanctum',

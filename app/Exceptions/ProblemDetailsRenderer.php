@@ -30,7 +30,7 @@ final class ProblemDetailsRenderer
 
     public static function appliesTo(Request $request): bool
     {
-        return $request->is('api/*', 'cms/*');
+        return $request->is('api/*', 'cms/*', 'up');
     }
 
     public function render(Throwable $e, Request $request): ?JsonResponse
