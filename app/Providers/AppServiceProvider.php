@@ -34,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('admin', fn (User $user): Response => $user->isAdmin()
             ? Response::allow()
             : Response::deny('This action requires the admin role.'));
+
+        // Filtering the listing by CMS status or override flag is administrator-only.
+        Gate::define('filter-contents', fn (User $user): Response => Gate::forUser($user)->inspect('admin'));
     }
 
     private function configureRateLimiting(): void

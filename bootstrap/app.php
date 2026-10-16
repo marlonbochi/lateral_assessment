@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Exceptions\ProblemDetailsRenderer;
 use App\Http\Middleware\AuthenticateCms;
+use App\Http\Middleware\EnsureRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -25,7 +27,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'auth.cms' => AuthenticateCms::class,
+            'role' => EnsureRole::class,
         ]);
+
+        // Authorize admin-only routes before any {model} binding is resolved,
+        // so a regular user cannot probe which ids exist.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureRole::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

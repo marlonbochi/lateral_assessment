@@ -671,7 +671,7 @@ gating that never leaks whether a resource exists.
 
 ### Tests for User Story 4 ⚠️ write first, they must fail
 
-- [ ] T058 [P] [US4] Write `tests/Feature/Security/ActorSeparationTest.php`:
+- [X] T058 [P] [US4] Write `tests/Feature/Security/ActorSeparationTest.php`:
   - CMS Basic credentials on `GET /api/v1/contents` and `GET /api/v1/contents/x` → `401` with
     `WWW-Authenticate: Bearer`.
   - A user or admin bearer token on `POST /cms/events` → `401`, with no batch stored.
@@ -679,7 +679,7 @@ gating that never leaks whether a resource exists.
   - Rate limiting: with `cms.api.rate_limit_per_minute` and
     `cms.webhook.rate_limit_per_minute` set to 2 in the test, the 3rd request → `429`
     problem+json with a `Retry-After` header, for both a consumer route and the webhook.
-- [ ] T059 [P] [US4] Write `tests/Feature/Security/TokenValidityTest.php`. Each of these
+- [X] T059 [P] [US4] Write `tests/Feature/Security/TokenValidityTest.php`. Each of these
   returns `401`:
   - a revoked token
   - an expired token (`expires_at` in the past)
@@ -687,13 +687,13 @@ gating that never leaks whether a resource exists.
   - a malformed token
   - a token from another table id
   - a correct token with the wrong secret part
-- [ ] T060 [P] [US4] Write `tests/Feature/Security/AccessMatrixTest.php`:
+- [X] T060 [P] [US4] Write `tests/Feature/Security/AccessMatrixTest.php`:
   - A Pest dataset `endpoint × actor → expected status` for the actors anonymous, cms, user and
     admin.
   - Initial rows cover `POST /cms/events`, `GET /api/v1/contents` and
     `GET /api/v1/contents/{id}`.
   - Later phases append rows (T066, T067, T081).
-- [ ] T061 [P] [US4] Write `tests/Feature/Security/NoCmsWritesTest.php`:
+- [X] T061 [P] [US4] Write `tests/Feature/Security/NoCmsWritesTest.php`:
   - `POST`/`PATCH`/`PUT`/`DELETE` on `/api/v1/contents` and `/api/v1/contents/{id}` → `405`
     problem+json, with the DB unchanged.
   - Iterate `Route::getRoutes()` and assert that no route under `api/v1` other than
@@ -701,7 +701,7 @@ gating that never leaks whether a resource exists.
 
 ### Implementation for User Story 4
 
-- [ ] T062 [US4] Define the authorization rules in Laravel policies and gates (constitution
+- [X] T062 [US4] Define the authorization rules in Laravel policies and gates (constitution
   Principle II: authorization goes through policies/gates):
   - Gate `admin` in `AppServiceProvider::boot()` → `$user->isAdmin() ? Response::allow() :
     Response::deny('This action requires the admin role.')`. The deny message matches the
@@ -718,17 +718,17 @@ gating that never leaks whether a resource exists.
 
   Add `tests/Feature/Policies/PolicyTest.php` with a dataset of role × ability. It lives in
   `Feature/` because gates need the booted application container.
-- [ ] T063 [US4] Implement `app/Http/Middleware/EnsureRole.php` (`role:admin`) as a thin
+- [X] T063 [US4] Implement `app/Http/Middleware/EnsureRole.php` (`role:admin`) as a thin
   adapter over the gate: `Gate::authorize($role)`, which throws `AuthorizationException('This
   action requires the admin role.')`. It contains **no** role comparison of its own. Alias it in
   `bootstrap/app.php` and add it to `$middleware->priority` **before** `SubstituteBindings`,
   so a non-admin gets 403 before any id lookup. Controllers still call policies (T069, T085) as
   the authoritative per-resource check.
-- [ ] T064 [US4] In `ProblemDetailsRenderer`, add the `WWW-Authenticate: Bearer` header on 401
+- [X] T064 [US4] In `ProblemDetailsRenderer`, add the `WWW-Authenticate: Bearer` header on 401
   for `api/*` (Basic for `cms/*`) and the 405 mapping. Make sure `auth:sanctum` rejects Basic
   headers without falling back to any other guard (`config/auth.php` default guard has no
   session fallback for API).
-- [ ] T065 [US4] Run the US4 suite plus lint and commit.
+- [X] T065 [US4] Run the US4 suite plus lint and commit.
 
 **Checkpoint**: Security matrix green for all current endpoints.
 

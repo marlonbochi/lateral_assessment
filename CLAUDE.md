@@ -12,7 +12,8 @@ international Senior PHP Engineer position.
 
 - PHP 8.4 (`^8.3`, Composer platform pinned to 8.3), Laravel 13, Sanctum 4, PostgreSQL 18,
   Pest 4 (Pest 5 needs PHP 8.4), Larastan 3, Pint. Tests use `Pest\Laravel\*` functions
-  (typed for Larastan), not `$this->`.
+  (typed for Larastan), not `$this->`. Pest resolves closures inside dataset tuples only when
+  the test parameter has a concrete type (not `mixed`/`Closure`); never nest `fn () => fn () =>`.
 - Docker Compose: nginx + php-fpm `app`, `worker` (queue), `scheduler`, `postgres`.
 - Webhook → transactional inbox (`event_batches` + `jobs` in one transaction) → `202`;
   worker applies batches atomically with sorted `pg_advisory_xact_lock` per content id.

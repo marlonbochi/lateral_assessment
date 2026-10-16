@@ -16,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use PDOException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
@@ -71,7 +72,9 @@ final class ProblemDetailsRenderer
                 [],
                 ['errors' => $e->errors()],
             ],
-            $e instanceof AuthenticationException => [401, 'Authentication is required.', [], []],
+            // Consumer routes authenticate with bearer tokens (RFC 6750 challenge);
+            // the webhook throws its own Basic challenge from AuthenticateCms.
+            $e instanceof AuthenticationException => [401, 'Authentication is required.', ['WWW-Authenticate' => 'Bearer'], []],
             $e instanceof AuthorizationException => [403, $e->getMessage() ?: 'This action is unauthorized.', [], []],
             $e instanceof ModelNotFoundException => [404, $this->notFoundDetail($e->getModel()), [], []],
             // Laravel converts ModelNotFoundException into NotFoundHttpException
@@ -79,6 +82,12 @@ final class ProblemDetailsRenderer
             $e instanceof NotFoundHttpException => [
                 404,
                 $this->notFoundDetail($e->getPrevious() instanceof ModelNotFoundException ? $e->getPrevious()->getModel() : null),
+                $this->headers($e),
+                [],
+            ],
+            $e instanceof MethodNotAllowedHttpException => [
+                405,
+                'The method is not allowed for this resource.',
                 $this->headers($e),
                 [],
             ],
