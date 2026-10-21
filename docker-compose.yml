@@ -40,9 +40,11 @@ services:
 
   worker:
     <<: *php
-    # --sleep=1: an idle worker polls the (indexed) jobs table every second, so a
-    # batch is picked up at most ~1 s after it is acknowledged.
-    command: ["php", "artisan", "queue:work", "database", "--queue=cms-events", "--tries=5", "--sleep=1", "--max-time=3600"]
+    # cms:work reads the queue connection and name from config/cms.php (the
+    # same values the webhook uses) and refuses to start on a queue that cannot
+    # share the inbox transaction. --sleep=1: an idle worker polls the (indexed)
+    # jobs table every second, so a batch is picked up ~1 s after it is acknowledged.
+    command: ["php", "artisan", "cms:work", "--sleep=1", "--max-time=3600"]
 
   scheduler:
     <<: *php

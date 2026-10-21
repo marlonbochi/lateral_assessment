@@ -7,6 +7,7 @@ namespace App\Actions\Cms;
 use App\Enums\BatchStatus;
 use App\Jobs\ProcessEventBatchJob;
 use App\Models\EventBatch;
+use App\Support\Queue\CmsQueue;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +18,10 @@ use Illuminate\Support\Facades\Log;
  */
 final class AcceptEventBatch
 {
-    public function __construct(private readonly Dispatcher $dispatcher) {}
+    public function __construct(
+        private readonly Dispatcher $dispatcher,
+        private readonly CmsQueue $queue,
+    ) {}
 
     /**
      * @param  string  $rawEvents  The validated request body (a JSON list), stored
@@ -26,6 +30,9 @@ final class AcceptEventBatch
      */
     public function handle(string $rawEvents, int $eventCount, ?string $requestId = null): EventBatch
     {
+        // Never acknowledge a batch whose job could not share its transaction.
+        $this->queue->ensureTransactional();
+
         $batch = DB::transaction(function () use ($rawEvents, $eventCount, $requestId): EventBatch {
             $batch = EventBatch::query()->forceCreate([
                 'status' => BatchStatus::Pending,
@@ -42,8 +49,8 @@ final class AcceptEventBatch
             // is no window where a batch is acknowledged but never queued.
             $this->dispatcher->dispatch(
                 (new ProcessEventBatchJob($batch->id))
-                    ->onConnection((string) config('cms.queue.connection'))
-                    ->onQueue((string) config('cms.queue.name')),
+                    ->onConnection($this->queue->connection())
+                    ->onQueue($this->queue->name()),
             );
 
             return $batch;
