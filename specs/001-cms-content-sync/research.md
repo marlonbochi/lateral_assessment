@@ -138,6 +138,11 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
   inbox stores the validated raw request body (`jsonb`), and the worker copies
   `events -> i -> 'payload'` into `contents` with SQL, so numbers keep arbitrary precision.
   PHP decodes only the event metadata (id, version, type, timestamp) to decide precedence.
+- **Amendment (post-review)**: the read path no longer decodes payloads either.
+  `contents.payload` is cast to `RawJson` (the stored `jsonb` text), and content resources embed
+  that text in the response verbatim. Decoding in PHP turned integers beyond int64 into floats
+  and values such as `1e400` into `INF` (a 500), and saving a model after reading its payload
+  rewrote it with that lossy encoding.
 - **Where it applies**: everywhere a payload crosses PHP: the request (object decode kept
   alongside the associative decode used by the validator, which cannot traverse `stdClass`),
   the inbox (`event_batches.events` uses an object-preserving list cast, never `array`), the
@@ -287,8 +292,8 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
     property test for SC-001), value objects, enums, cursor/pagination helpers.
   - **Feature/Integration** (`tests/Feature`): HTTP + PostgreSQL via `RefreshDatabase`:
     webhook auth/validation/acknowledgement, batch processing through the **real `database`
-    queue driver** everywhere (a `drainQueue()` helper runs the worker until the queue is
-    empty, so tests exercise the same path as production), access matrix,
+    queue driver** everywhere (a `drainQueue()` helper runs `cms:work` until the queue is
+    empty, so tests exercise the same command as production), access matrix,
     visibility, overrides, pagination, problem details, logging hygiene, failure injection and
     retry/recovery.
   - **Concurrency** (`tests/Concurrency`): conflicting batches processed by parallel processes
@@ -312,7 +317,8 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
 
 - **Decision**: Single multi-stage `Dockerfile` (PHP 8.4-FPM Alpine, `pdo_pgsql`, opcache;
   Composer stage for vendor) reused by three Compose services: `app` (php-fpm), `worker`
-  (`php artisan queue:work --tries=5 --max-time=3600`), `scheduler` (`php artisan schedule:work`
+  (`php artisan cms:work --sleep=1 --max-time=3600`, which runs `queue:work` with the
+  connection and queue name from `config/cms.php`; retries come from the job), `scheduler` (`php artisan schedule:work`
   for pruning). Plus `nginx` (alpine) and `postgres:18-alpine` with an init script creating
   `cms_sync` and `cms_sync_test`. Healthchecks on postgres and app; app waits for a healthy DB.
   `make`-style shortcuts via a `Makefile` (`make up`, `make test`, `make lint`).

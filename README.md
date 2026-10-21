@@ -23,7 +23,7 @@ content locally without touching CMS-managed data.
   revocable bearer tokens. Every role decision goes through one gate.
 - **Exact payloads.** CMS payloads are stored exactly as received (`{}` stays `{}`, numbers keep
   their precision) and are never logged.
-- **Quality gates.** 545 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
+- **Quality gates.** 577 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
   OpenAPI conformance tests, and CI on PHP 8.3 and 8.4.
 
 ## Quick start
@@ -177,7 +177,8 @@ the separate `cms_sync_test` database.
 | `make shell` | Open a shell in the app container. |
 | `docker compose logs -f worker` | Follow the structured processing log. |
 
-The worker runs `queue:work` and polls every second. The scheduler prunes old batches and
+The worker runs `php artisan cms:work`, which reads the queue connection and name from
+`config/cms.php` (the same values the webhook uses) and polls every second. The scheduler prunes old batches and
 expired tokens daily.
 
 Operations commands:
@@ -261,8 +262,6 @@ In short:
 - **Content ids** must be URL-safe (`^[A-Za-z0-9][A-Za-z0-9._:-]*$`, at most 255 characters).
 - **No content history.** Only the latest version is kept; raw batches are retained for 30 days.
 - **Credential rotation.** There is one CMS credential pair, and rotating it requires a restart.
-- **Numeric precision when serving.** Payload numbers beyond int64 or double precision are
-  stored exactly but served as doubles.
 
 ## How this was built
 

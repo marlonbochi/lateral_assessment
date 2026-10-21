@@ -305,6 +305,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /up:
     get:
@@ -655,7 +656,10 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
     ServiceUnavailable:
-      description: The batch could not be durably recorded; the CMS should retry.
+      description: >-
+        Batch processing cannot be scheduled right now (the batch could not be durably recorded,
+        or the CMS queue is not a database queue on the application database). Nothing was
+        changed; retry after the `Retry-After` delay.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
