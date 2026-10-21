@@ -1019,9 +1019,15 @@ deliverable documentation.
   against the Docker stack, and fix any discrepancy between the docs, the contract and the
   behaviour. Run `make perf` (self-seeding 100k rows, `tests/Performance`) and
   record the measured ack/processing times and p95 latencies in the README.
-- [ ] T098 Final constitution compliance review: confirm that the T060 access matrix has rows for
+- [X] T098 Final constitution compliance review: confirm that the T060 access matrix has rows for
   all 8 endpoints × 4 actors, tick the README roadmap, update `CLAUDE.md` if
   any structure changed, make sure CI is green on `main`, and tag `v1.0.0`.
+  - Done after Phase 10: the access matrix has 10 rows × 4 actors (the 8 endpoints, `GET /up`
+    and the admin filter). The README has no roadmap section any more (nothing to tick).
+    `CLAUDE.md` now covers `cms:work`, `CmsQueue` and `RawJson`. Every constitution rule holds;
+    the only difference is stricter than required: `GET /up` also needs a token, as the brief asks
+    for every endpoint to be protected. CI is green on `main`, and `v1.0.0` tags the merge of the
+    final documentation PR.
 
 ---
 

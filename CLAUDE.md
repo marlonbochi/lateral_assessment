@@ -14,7 +14,9 @@ international Senior PHP Engineer position.
   Pest 4 (Pest 5 needs PHP 8.4), Larastan 3, Pint. Tests use `Pest\Laravel\*` functions
   (typed for Larastan), not `$this->`. Pest resolves closures inside dataset tuples only when
   the test parameter has a concrete type (not `mixed`/`Closure`); never nest `fn () => fn () =>`.
-- Docker Compose: nginx + php-fpm `app`, `worker` (queue), `scheduler`, `postgres`.
+- Docker Compose: nginx + php-fpm `app`, `worker` (`php artisan cms:work`), `scheduler`, `postgres`.
+  `CmsQueue` is the only reader of the queue config and requires a database queue on the app
+  database (otherwise the webhook answers 503 and `cms:work` refuses to start).
 - Webhook → transactional inbox (`event_batches` + `jobs` in one transaction) → `202`;
   worker applies batches atomically with sorted `pg_advisory_xact_lock` per content id.
 - Precedence lives in the pure `app/Domain/Cms/EventPrecedence` (no Illuminate imports).
@@ -31,6 +33,8 @@ international Senior PHP Engineer position.
   `actingAsRole()` (forgets cached guards), `cmsEvent()` (pass `(object) []` for `{}`).
 - Role decisions only through the `admin` gate (`$user->can('admin')`); an arch test enforces it.
 - Never log payloads, credentials or SQL bindings; use `SafeError` for error summaries.
+- Never decode payloads in PHP: `contents.payload` is a `RawJson` (stored `jsonb` text) that content
+  resources embed verbatim (`EmbedsRawJson`); timestamps are normalized to UTC in `CmsEvent`.
 - Generated storage and the PHPStan cache must never be committed (they capture env values).
 
 ## Ground rules
