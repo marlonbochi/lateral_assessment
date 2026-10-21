@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - app
+        - config
+        - database
+        - routes
+        - tests
+    # Outside the repository tree so the analysis cache (which records environment
+    # values) can never be committed.
+    tmpDir: /tmp/phpstan

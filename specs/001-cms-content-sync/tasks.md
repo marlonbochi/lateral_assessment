@@ -41,7 +41,7 @@ US2 because it hardens endpoints that must exist first.
 **Purpose**: Laravel skeleton, tooling, containers, and CI so every later task runs against
 PostgreSQL in Docker and is checked automatically.
 
-- [ ] T001 Scaffold the Laravel 13 skeleton into the repository root:
+- [X] T001 Scaffold the Laravel 13 skeleton into the repository root:
   - Run `composer create-project laravel/laravel:^13.0` into the scratchpad.
   - Copy the result into the root **without overwriting** `README.md`, `CLAUDE.md`, `.claude/`,
     `.specify/` or `specs/`, and merge Laravel's `.gitignore` entries into the existing
@@ -51,25 +51,27 @@ PostgreSQL in Docker and is checked automatically.
   - Remove the frontend scaffolding: `package.json`, `vite.config.js`, `resources/js`,
     `resources/css`, `resources/views/welcome.blade.php`, and the welcome route in
     `routes/web.php` (leave `routes/web.php` with no routes).
-- [ ] T002 Install the API stack:
+- [X] T002 Install the API stack:
   - Run `php artisan install:api`. This adds `laravel/sanctum:^4.0`, `routes/api.php` and the
     `personal_access_tokens` migration.
-  - Add the Pest dev dependencies `pestphp/pest:^5.0` and `pestphp/pest-plugin-laravel`, then
+  - Add the Pest dev dependencies `pestphp/pest:^4.7` and `pestphp/pest-plugin-laravel:^4.1`
+    (Pest 5 requires PHP 8.4; see research R1 amendment) with Composer
+    `config.platform.php = 8.3.0`, then
     run `vendor/bin/pest --init` to create `tests/Pest.php`.
   - Delete the skeleton's example tests in `tests/Unit/ExampleTest.php` and
     `tests/Feature/ExampleTest.php`.
-- [ ] T003 [P] Add Larastan: `composer require --dev larastan/larastan:^3.0` and create
+- [X] T003 [P] Add Larastan: `composer require --dev larastan/larastan:^3.0` and create
   `phpstan.neon`:
   - `level: 8`
   - `paths: [app, config, database, routes, tests]`
   - include `vendor/larastan/larastan/extension.neon`
   - no baseline
-- [ ] T004 [P] Create `pint.json`:
+- [X] T004 [P] Create `pint.json`:
   - preset `laravel`
   - rules `declare_strict_types: true`, `strict_comparison: true`, `ordered_imports`,
     `no_unused_imports`, `final_class: false`
   - Then run `vendor/bin/pint` once over the skeleton.
-- [ ] T005 [P] Create `config/cms.php` with these keys, each read from env with the default
+- [X] T005 [P] Create `config/cms.php` with these keys, each read from env with the default
   shown:
   - `webhook.username` (`CMS_WEBHOOK_USERNAME`, null)
   - `webhook.password` (`CMS_WEBHOOK_PASSWORD`, null)
@@ -81,14 +83,14 @@ PostgreSQL in Docker and is checked automatically.
   - `processing.tries` (5)
   - `processing.backoff` ([5, 30, 120, 600])
   - `batches.retention_days` (`CMS_BATCH_RETENTION_DAYS`, 30)
-- [ ] T006 [P] Create `docker/php/Dockerfile` as a multi-stage build:
+- [X] T006 [P] Create `docker/php/Dockerfile` as a multi-stage build:
   - Stage `vendor`: `composer:2` image, `composer install --no-dev --prefer-dist
     --no-scripts`.
   - Stage `app`: `php:8.4-fpm-alpine` with extensions `pdo_pgsql`, `pgsql`, `opcache`,
     `pcntl`, `intl`; copy `docker/php/php.ini` and `docker/php/opcache.ini`; non-root `www-data`
     user; `WORKDIR /var/www/html`.
   - Stage `dev`: extends `app`, adds Composer and `pcov` for coverage.
-- [ ] T007 [P] Create `docker/nginx/default.conf`:
+- [X] T007 [P] Create `docker/nginx/default.conf`:
   - `server_tokens off`
   - `client_max_body_size 2m` (the app enforces the 1 MiB limit so the 413 comes back as
     problem+json)
@@ -96,9 +98,9 @@ PostgreSQL in Docker and is checked automatically.
   - security headers `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
     `Referrer-Policy: no-referrer`
   - deny dotfiles
-- [ ] T008 [P] Create `docker/postgres/init/01-create-test-db.sql` that creates the database
+- [X] T008 [P] Create `docker/postgres/init/01-create-test-db.sql` that creates the database
   `cms_sync_test` owned by the app user, next to the default `cms_sync`.
-- [ ] T009 Create `docker-compose.yml` (depends on T006–T008):
+- [X] T009 Create `docker-compose.yml` (depends on T006–T008):
   - Services:
     - `postgres` (`postgres:18-alpine`): healthcheck `pg_isready`, named volume, init script
       mounted.
@@ -108,7 +110,7 @@ PostgreSQL in Docker and is checked automatically.
     - `nginx`: publishes port `8080`.
   - The source is bind-mounted in dev.
   - Env comes from `.env`, and no secret is hard-coded.
-- [ ] T010 Create a `Makefile` with these targets:
+- [X] T010 Create a `Makefile` with these targets:
   - `up`, `down`, `build`, `shell`
   - `migrate` (`php artisan migrate`)
   - `fresh` (`php artisan migrate:fresh --seed`)
@@ -125,7 +127,7 @@ PostgreSQL in Docker and is checked automatically.
     `DemoSeeder` once T090 exists.
 
   All targets run inside the `app` container.
-- [ ] T011 Configure environments:
+- [X] T011 Configure environments:
   - `.env.example`: `DB_CONNECTION=pgsql`, `DB_HOST=postgres`, `DB_DATABASE=cms_sync`,
     `QUEUE_CONNECTION=database`, `CACHE_STORE=database`, `SESSION_DRIVER=array`, every
     `config/cms.php` variable with placeholder values (`CMS_WEBHOOK_PASSWORD=change-me`), and
@@ -136,7 +138,7 @@ PostgreSQL in Docker and is checked automatically.
     `CACHE_STORE=array`.
   - `.env` stays git-ignored. `.env.testing` is committed and contains only test values
     (never real secrets); document this in the README.
-- [ ] T012 [P] Create `.github/workflows/ci.yml`:
+- [X] T012 [P] Create `.github/workflows/ci.yml`:
   - Triggers: `push` and `pull_request`.
   - `permissions: contents: read`.
   - Concurrency group that cancels superseded runs.
@@ -155,7 +157,7 @@ PostgreSQL in Docker and is checked automatically.
          `hashFiles('tests/Performance/**') != ''` until T091 exists.
     4. `openapi`: `npx @redocly/cli@1 lint specs/001-cms-content-sync/contracts/openapi.yaml`.
     5. `docker`: `docker build --target app -f docker/php/Dockerfile .` (no push).
-- [ ] T013 Boot the stack from scratch with `make setup`, confirm that `GET /up` returns 200
+- [X] T013 Boot the stack from scratch with `make setup`, confirm that `GET /up` returns 200
   through nginx on port 8080, add the smoke test `tests/Feature/HealthTest.php` (`GET /up` →
   200) so the suite is never empty, and commit the Phase 1 result.
 
@@ -171,7 +173,7 @@ every story.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T014 Create the test harness:
+- [X] T014 Create the test harness:
   - `tests/TestCase.php`: in `setUp()`, throw a `RuntimeException` unless
     `config('database.connections.pgsql.database')` matches `/_test(_test_\d+)?$/`. The optional
     suffix is needed because `--parallel` gives each process its own database
@@ -204,18 +206,18 @@ every story.
         redeclaring Laravel's global `event()` helper). An empty PHP array is encoded as a JSON
         **list** `[]`, so tests that need an empty object MUST pass `(object) []` (T032, T036,
         T051).
-- [ ] T015 [P] Create the backed string enums:
+- [X] T015 [P] Create the backed string enums:
   - `app/Enums/Role.php`: `User = 'user'`, `Admin = 'admin'`.
   - `app/Enums/ContentStatus.php`: `Published = 'published'`, `Unpublished = 'unpublished'`,
     `Deleted = 'deleted'`.
   - `app/Enums/BatchStatus.php`: `Pending = 'pending'`, `Processed = 'processed'`,
     `Failed = 'failed'`.
-- [ ] T016 [P] Create the domain enums (no Illuminate imports):
+- [X] T016 [P] Create the domain enums (no Illuminate imports):
   - `app/Domain/Cms/CmsEventType.php`: `Publish = 'publish'`, `Unpublish = 'unpublish'`,
     `Delete = 'delete'`, with method `targetStatus(): ContentStatus`.
   - `app/Domain/Cms/IgnoreReason.php`: `Duplicate = 'duplicate'`, `Stale = 'stale'`,
     `StaleAfterDelete = 'stale_after_delete'`.
-- [ ] T017 Adapt the users schema and model:
+- [X] T017 Adapt the users schema and model:
   - Edit `database/migrations/0001_01_01_000000_create_users_table.php`:
     - Remove `email_verified_at`, `password` and `remember_token`.
     - Drop the `password_reset_tokens` and `sessions` tables.
@@ -226,7 +228,7 @@ every story.
   - Update `app/Models/User.php`: `HasApiTokens`, `#[Fillable(['name','email','role'])]`
     (or `$fillable`), `role` cast to `Role`, `isAdmin(): bool`.
   - Update `database/factories/UserFactory.php` with states `user()` and `admin()`.
-- [ ] T018 [P] Create migration `database/migrations/2026_10_16_000100_create_contents_table.php`
+- [X] T018 [P] Create migration `database/migrations/2026_10_16_000100_create_contents_table.php`
   per data-model §1:
   - Columns:
     - `id` bigint identity
@@ -253,7 +255,7 @@ every story.
       AND is_disabled = false`
     - `contents_admin_feed_idx` on `(synced_at DESC, cms_id DESC) WHERE status <> 'deleted'`
   - `down()` drops the table.
-- [ ] T019 [P] Create migration
+- [X] T019 [P] Create migration
   `database/migrations/2026_10_16_000200_create_event_batches_table.php` per data-model §2:
   - Columns:
     - `id uuid primary key`
@@ -275,11 +277,11 @@ every story.
     - `event_batches_events_is_array` — `CHECK (jsonb_typeof(events) = 'array')`
   - Index `event_batches_status_received_idx` on `(status, received_at DESC, id DESC)`.
   - `down()` drops the table.
-- [ ] T020 [P] Verify that the skeleton's `jobs`, `job_batches`, `failed_jobs`, `cache` and
+- [X] T020 [P] Verify that the skeleton's `jobs`, `job_batches`, `failed_jobs`, `cache` and
   `cache_locks` migrations exist and use `timestamptz` where they define timestamps. Set
   `config/queue.php` default to `database` and `config/cache.php` default to `database`
   (`array` in testing).
-- [ ] T021 [P] Create `app/Models/Content.php`:
+- [X] T021 [P] Create `app/Models/Content.php`:
   - Casts: `status` → `ContentStatus`, `cms_timestamp` / `synced_at` / `disabled_at` →
     `immutable_datetime`, `is_disabled` → bool. Leave `payload` uncast for now: T040 adds the
     object-preserving `JsonObjectPayload` cast (keeps `{}` vs `[]`).
@@ -288,7 +290,7 @@ every story.
   - `$guarded = ['*']` (writes only via explicit attribute assignment in actions).
   - `database/factories/ContentFactory.php` with states `published()`, `unpublished()`,
     `deleted()` (payload null), `disabled()`, and `version(int)`.
-- [ ] T022 [P] Create `app/Models/EventBatch.php`:
+- [X] T022 [P] Create `app/Models/EventBatch.php`:
   - `HasUuids` (UUID v7).
   - Casts: `status` → `BatchStatus`, datetimes immutable. Leave `events` uncast for now:
     **never** use the `array` cast here, because it turns `{}` payloads into `[]`. T040 adds the
@@ -296,7 +298,7 @@ every story.
   - `belongsTo retriedBy(User)`.
   - `database/factories/EventBatchFactory.php` with states `pending()`, `processed()`,
     `failed()`.
-- [ ] T023 Create `app/Exceptions/ProblemDetailsRenderer.php` and register it in
+- [X] T023 Create `app/Exceptions/ProblemDetailsRenderer.php` and register it in
   `bootstrap/app.php` → `withExceptions()`, for requests matching `api/*` or `cms/*` (and
   `shouldRenderJsonWhen` for both):
   - Render `application/problem+json` with `type: 'about:blank'`, `title` (HTTP reason
@@ -311,7 +313,9 @@ every story.
     - `ThrottleRequestsException` → 429 (keep `Retry-After`)
     - `QueryException` / `PDOException` during webhook acceptance → 503
     - everything else → 500, with no trace unless `app.debug`
-- [ ] T024 Configure routing in `bootstrap/app.php`:
+- [X] T024 Configure routing in `bootstrap/app.php`:
+  - Implementation note: `/up` was later moved behind `auth:sanctum` (the brief requires every
+    endpoint to be protected); it is registered in `then:` with `HealthController`, not `health:`.
   - `withRouting(api: routes/api.php, apiPrefix: 'api', health: '/up', then:` register
     `routes/cms.php` with **no** `api` middleware group except `throttle:cms-webhook`)`.
   - `routes/api.php` wraps everything in `Route::prefix('v1')->middleware(['auth:sanctum',
@@ -323,24 +327,24 @@ every story.
   - Add `use Illuminate\Foundation\Auth\Access\AuthorizesRequests;` to
     `app/Http/Controllers/Controller.php`. Since Laravel 11 the base controller is empty, and
     T069/T085 rely on `$this->authorize()`.
-- [ ] T025 Configure Sanctum in `config/sanctum.php`:
+- [X] T025 Configure Sanctum in `config/sanctum.php`:
   - `'stateful' => []`, `'guard' => []`
   - `'expiration' => env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 129600)`
   - `'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'cms_')`
-- [ ] T026 [P] Write `tests/Feature/Console/ConsumerCommandsTest.php`:
+- [X] T026 [P] Write `tests/Feature/Console/ConsumerCommandsTest.php`:
   - `consumer:create` creates a user with the role and rejects a duplicate email and an
     invalid role.
   - `consumer:token` prints a token starting with `cms_` exactly once, stores only its hash,
     and accepts `--name` and `--expires-days`.
   - `consumer:revoke {email} {--token-id=}|{--all}` deletes the tokens.
-- [ ] T027 Implement the console commands so T026 passes:
+- [X] T027 Implement the console commands so T026 passes:
   - `app/Console/Commands/CreateConsumer.php` — `consumer:create {name} {email}
     {--role=user}`, validating email uniqueness and role ∈ `Role`.
   - `app/Console/Commands/IssueConsumerToken.php` — `consumer:token {email} {--name=default}
     {--expires-days=}`.
   - `app/Console/Commands/RevokeConsumerToken.php` — `consumer:revoke {email}
     {--token-id=} {--all}`.
-- [ ] T028 [P] Write `tests/Feature/Database/SchemaConstraintsTest.php`. Raw inserts MUST fail
+- [X] T028 [P] Write `tests/Feature/Database/SchemaConstraintsTest.php`. Raw inserts MUST fail
   for each of the following:
   - `contents.version = 0`
   - a `deleted` row with a payload
@@ -354,9 +358,11 @@ every story.
   - a user role `root`
 
   Also assert that the partial indexes exist, via `pg_indexes`. In a separate file,
-  `tests/Database/MigrationRollbackTest.php` (uses `DatabaseMigrations`, outside the
-  `RefreshDatabase` directory), assert that `migrate:rollback` down to zero followed by
-  `migrate` succeeds (migrations are reversible, constitution Principle V).
+  `tests/Database/MigrationRollbackTest.php` (outside the `RefreshDatabase` directory),
+  assert that `migrate:reset` down to zero followed by `migrate` succeeds (migrations are
+  reversible, constitution Principle V). Implementation note: it resets and re-migrates
+  explicitly instead of using `DatabaseMigrations`, whose tear-down would leave the schema
+  rolled back for later `RefreshDatabase` tests in the same parallel worker.
 
 **Checkpoint**: migrations run on both databases, the factories work, a consumer token can be
 issued, and errors render as problem+json.
@@ -373,7 +379,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
 
 ### Tests for User Story 1 ⚠️ write first, they must fail
 
-- [ ] T029 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedenceTest.php` with a Pest dataset
+- [X] T029 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedenceTest.php` with a Pest dataset
   covering every row of the data-model §1 state machine:
   - no snapshot + publish/unpublish/delete → apply with the target status
   - higher version → apply
@@ -383,13 +389,13 @@ ordered, version-correct batch processing with tombstones and concurrency safety
     (equal → `duplicate`)
   - higher version after delete → apply (re-create)
   - timestamps in the opposite order to versions never change the decision
-- [ ] T030 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedencePermutationTest.php` (SC-001):
+- [X] T030 [P] [US1] Write `tests/Unit/Domain/Cms/EventPrecedencePermutationTest.php` (SC-001):
   - For 200 random seeds, build a set of events for 1–3 ids with random types and versions
     (with gaps), shuffle them, and duplicate a random subset.
   - Fold them through an in-memory reducer that uses `EventPrecedence`.
   - Assert that each id's final `(status, version)` equals the result of applying only its
     highest-version event.
-- [ ] T031 [P] [US1] Write `tests/Feature/Webhook/CmsAuthenticationTest.php`. Each of these
+- [X] T031 [P] [US1] Write `tests/Feature/Webhook/CmsAuthenticationTest.php`. Each of these
   returns `401` with `WWW-Authenticate: Basic realm="cms-webhook"`, a problem+json body, and no
   `event_batches` row:
   - no `Authorization` header
@@ -400,7 +406,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - server credentials configured empty (fail closed)
 
   Valid credentials → `202`.
-- [ ] T032 [P] [US1] Write `tests/Feature/Webhook/BatchValidationTest.php` as a dataset of
+- [X] T032 [P] [US1] Write `tests/Feature/Webhook/BatchValidationTest.php` as a dataset of
   invalid batches. Each returns `422`, and zero rows exist in `event_batches` and `jobs`.
   Batch-level errors (empty list, more than 100 events, JSON object root, malformed JSON) use
   the key `events`; event-level errors use `events.{i}.{field}`:
@@ -421,7 +427,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - A delete with a payload is accepted.
   - `Content-Type: text/plain` → `415`.
   - A body over `cms.webhook.max_body_bytes` → `413`.
-- [ ] T033 [P] [US1] Write `tests/Feature/Webhook/BatchAcceptanceTest.php`:
+- [X] T033 [P] [US1] Write `tests/Feature/Webhook/BatchAcceptanceTest.php`:
   - `202` body matches `BatchAcknowledgement` (`batch_id` uuid, `status: pending`,
     `event_count`, `received_at`).
   - The `event_batches` row holds the events exactly as sent, in order.
@@ -429,7 +435,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - Atomic hand-off: bind a queue dispatcher that throws after the batch insert → `503`, and
     neither an `event_batches` nor a `jobs` row remains.
   - Database unavailable → `503`.
-- [ ] T034 [P] [US1] Write `tests/Feature/Processing/EventProcessingTest.php` with one named
+- [X] T034 [P] [US1] Write `tests/Feature/Processing/EventProcessingTest.php` with one named
   test per spec US1 acceptance scenario 1–12, each going through the webhook and then
   `drainQueue()`:
   - publish creates
@@ -445,12 +451,12 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - in-batch unpublish v3 → publish v2
   - re-create after delete keeps `is_disabled`
   - version gap 3 → 9 applied
-- [ ] T035 [P] [US1] Write `tests/Feature/Processing/BatchAtomicityTest.php`:
+- [X] T035 [P] [US1] Write `tests/Feature/Processing/BatchAtomicityTest.php`:
   - Inject a failure while applying the 3rd of 5 events (e.g. a listener on the
     `ContentWritten` test hook, or bind a decorator around the writer that throws). Assert that
     no `contents` row changed, the batch is still `pending`, and `attempts` = 1.
   - Assert that after the fault is removed and the job is retried, all 5 events are applied.
-- [ ] T036 [P] [US1] Write `tests/Feature/Processing/PayloadFidelityTest.php`. Each of these
+- [X] T036 [P] [US1] Write `tests/Feature/Processing/PayloadFidelityTest.php`. Each of these
   round-trips byte-equivalent webhook → inbox (`event_batches.events`) → worker → `contents`
   and is read back from the database as JSON:
   - `{}` (top-level empty payload: the batch MUST be processed, not fail the
@@ -462,7 +468,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - large integers within the int64 range
   - floats
   - `null` values inside the payload
-- [ ] T037 [P] [US1] Write `tests/Concurrency/ConcurrentProcessingTest.php` (Pest group
+- [X] T037 [P] [US1] Write `tests/Concurrency/ConcurrentProcessingTest.php` (Pest group
   `concurrency`):
   - Put it in `tests/Concurrency/` (not `Feature/`) and use `DatabaseTruncation`. Child
     processes use their own connections and can only see **committed** data, so the seeded
@@ -478,17 +484,17 @@ ordered, version-correct batch processing with tombstones and concurrency safety
 
 ### Implementation for User Story 1
 
-- [ ] T038 [P] [US1] Create the readonly value objects in `app/Domain/Cms/`:
+- [X] T038 [P] [US1] Create the readonly value objects in `app/Domain/Cms/`:
   - `CmsEvent.php`: `id`, `version` (int), `timestamp` (`DateTimeImmutable`), `type`
     (`CmsEventType`), `?payload` (`stdClass|null`), with named constructor `fromValidated(object
     $raw)`.
   - `ContentSnapshot.php`: `version`, `status`.
   - `EventDecision.php`: `apply` bool, `?IgnoreReason`, `?ContentStatus newStatus`, with
     factories `apply()` and `ignore()`.
-- [ ] T039 [US1] Implement `app/Domain/Cms/EventPrecedence.php::decide(?ContentSnapshot
+- [X] T039 [US1] Implement `app/Domain/Cms/EventPrecedence.php::decide(?ContentSnapshot
   $current, CmsEvent $event): EventDecision`, a pure function per research R6, so that T029 and
   T030 pass.
-- [ ] T040 [P] [US1] Implement `app/Support/Json/JsonPayload.php`:
+- [X] T040 [P] [US1] Implement `app/Support/Json/JsonPayload.php`:
   - `decodeBody(string $json): mixed` uses `json_decode(..., false, 512,
     JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING)`.
   - `encode(stdClass|array $value): string` preserves `{}`.
@@ -500,7 +506,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - Add a unit test `tests/Unit/Support/JsonPayloadTest.php`: `{}` stays `{}`, `[]` stays
     `[]`, nested empty objects survive an encode/decode round-trip, and big integers are
     decoded as strings.
-- [ ] T041 [US1] Implement `app/Http/Middleware/AuthenticateCms.php` and alias it as `auth.cms`
+- [X] T041 [US1] Implement `app/Http/Middleware/AuthenticateCms.php` and alias it as `auth.cms`
   in `bootstrap/app.php`:
   - Parse `Authorization: Basic`.
   - Compare both the username and the password with `hash_equals` against `config('cms.webhook.*')`,
@@ -510,7 +516,7 @@ ordered, version-correct batch processing with tombstones and concurrency safety
     realm="cms-webhook"', 'Authentication is required.')`. It carries the `WWW-Authenticate`
     header itself, so T031 passes in US1 without waiting for T064. Make sure
     `ProblemDetailsRenderer` (T023) keeps the exception's headers.
-- [ ] T042 [US1] Implement `app/Http/Requests/Cms/StoreEventBatchRequest.php`:
+- [X] T042 [US1] Implement `app/Http/Requests/Cms/StoreEventBatchRequest.php`:
   - Decode the raw body **twice**, because Laravel's validator only traverses arrays
     (`Arr::dot`), not `stdClass`:
     1. An associative decode (`json_decode(..., true, 512, JSON_THROW_ON_ERROR |
@@ -538,21 +544,22 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   - Also add middleware `app/Http/Middleware/EnsureJsonBody.php`:
     - `Content-Type` not `application/json` → 415.
     - `Content-Length` or actual body over the configured max → 413.
-- [ ] T043 [US1] Implement `app/Actions/Cms/AcceptEventBatch.php`. In
+- [X] T043 [US1] Implement `app/Actions/Cms/AcceptEventBatch.php`. In
   `DB::transaction(...)`:
-  - Create the `EventBatch` (`status = pending`, `events` = the **object-decoded** events from
-    `StoreEventBatchRequest::rawEvents()` so payload objects are preserved through the
-    `JsonObjectList` cast, `event_count`, `received_at = now()`, `request_id`).
+  - Create the `EventBatch` (`status = pending`, `events` = the **validated raw request body**,
+    stored as-is through the `JsonObjectList` cast so PHP never re-encodes it, `event_count`,
+    `received_at = now()`, `request_id`). Implementation note: this replaces "object-decoded
+    events" for even higher fidelity (exact numbers; see research R8).
   - Dispatch `ProcessEventBatchJob` with `->onConnection(config('cms.queue.connection'))
     ->onQueue(config('cms.queue.name'))`, **not** `afterCommit` (research R2; add a code comment
     explaining why).
   - Return the batch.
-- [ ] T044 [US1] Implement the invokable `app/Http/Controllers/Cms/EventBatchController.php`
+- [X] T044 [US1] Implement the invokable `app/Http/Controllers/Cms/EventBatchController.php`
   (`StoreEventBatchRequest` → `AcceptEventBatch` → `202` JSON `{data: {batch_id, status,
   event_count, received_at}}`). Register the route `POST /cms/events` in `routes/cms.php` with
   middleware `['auth.cms', EnsureJsonBody::class]`. `throttle:cms-webhook` is applied once,
   at the route-file level in T024; don't repeat it here.
-- [ ] T045 [US1] Implement `app/Actions/Cms/ProcessEventBatch.php::handle(EventBatch $batch):
+- [X] T045 [US1] Implement `app/Actions/Cms/ProcessEventBatch.php::handle(EventBatch $batch):
   BatchResult` in `DB::transaction(..., attempts: 3)`:
   1. Re-select the batch `lockForUpdate()` and return early if it is `processed`.
   2. For each distinct `cms_id` sorted ascending, run `SELECT
@@ -562,13 +569,15 @@ ordered, version-correct batch processing with tombstones and concurrency safety
   4. For each event in order: load the snapshot (`select version, status from contents where
      cms_id = ?`), call `EventPrecedence::decide`, and on apply write **only** CMS-owned columns
      (`version`, `status`, `payload` — null for delete, `cms_timestamp`, `synced_at = now()`)
-     using insert-or-update with guard `WHERE contents.version < :incoming`. Never touch
+     using insert-or-update with guard `WHERE contents.version < :incoming`. The payload is
+     copied inside PostgreSQL from the inbox (`events -> i -> 'payload'`), so it never
+     round-trips through PHP. Never touch
      `is_disabled`, `disabled_at` or `disabled_by`.
   5. Update the batch to `processed` with `applied_count`, `ignored_count` and
      `processed_at`.
 
   Also create the readonly `app/Domain/Cms/BatchResult.php`.
-- [ ] T046 [US1] Implement `app/Jobs/ProcessEventBatchJob.php`:
+- [X] T046 [US1] Implement `app/Jobs/ProcessEventBatchJob.php`:
   - `ShouldQueue`, constructor `public readonly string $batchId`.
   - `tries(): int` and `backoff(): array` methods read `config('cms.processing.*')`. These
     must be methods: PHP property defaults can't call functions.
@@ -576,12 +585,12 @@ ordered, version-correct batch processing with tombstones and concurrency safety
     processes.
   - `failed(Throwable)` sets `status = failed`, `failed_at`, and a sanitized `last_error`
     (exception class + message truncated to 1000 chars; never event payloads).
-- [ ] T047 [US1] Add the artisan test-support command
+- [X] T047 [US1] Add the artisan test-support command
   `app/Console/Commands/ProcessBatchOnce.php` (`cms:batches:process {id}`, hidden; prints the
   connected database name when run with `-v`), used by T037 to run `ProcessEventBatch` in a
   separate process, and the sample webhook body
   `docs/examples/batch.json` (the brief's 3-event example).
-- [ ] T048 [US1] Run the whole US1 suite plus `make lint` until green, and commit.
+- [X] T048 [US1] Run the whole US1 suite plus `make lint` until green, and commit.
 
 **Checkpoint**: The MVP ingestion pipeline is complete. Every mandatory processing scenario
 (duplicates, out-of-order, unpublish edge case, delete protection) passes.
@@ -598,7 +607,7 @@ token, and assert what is visible, the response shape, and pagination.
 
 ### Tests for User Story 2 ⚠️ write first, they must fail
 
-- [ ] T049 [P] [US2] Write `tests/Feature/Api/UserContentVisibilityTest.php`:
+- [X] T049 [P] [US2] Write `tests/Feature/Api/UserContentVisibilityTest.php`:
   - The list contains only `published` + `is_disabled = false`.
   - `show` returns `200` for a visible item.
   - `show` returns `404` problem+json for unpublished, deleted, disabled and unknown ids, with
@@ -606,7 +615,7 @@ token, and assert what is visible, the response shape, and pagination.
     after removing `instance`.
   - An item disappears after a newer unpublish or delete is processed via the webhook
     (scenario 4).
-- [ ] T050 [P] [US2] Write `tests/Feature/Api/ContentPaginationTest.php`:
+- [X] T050 [P] [US2] Write `tests/Feature/Api/ContentPaginationTest.php`:
   - Default cursor mode: 40 items → pages 15/15/10, no duplicates or gaps, order `synced_at DESC,
     cms_id DESC` (including tie-break on equal `synced_at`).
   - `meta.pagination = 'cursor'`, `next_cursor` null on the last page.
@@ -617,7 +626,7 @@ token, and assert what is visible, the response shape, and pagination.
   - `per_page` of 0 or 101 → 422.
   - `cursor` + `page` together → 422.
   - A tampered cursor → 422.
-- [ ] T051 [P] [US2] Write `tests/Feature/Api/ContentResourceShapeTest.php`:
+- [X] T051 [P] [US2] Write `tests/Feature/Api/ContentResourceShapeTest.php`:
   - A user's item has exactly the keys `id, version, content, cms_updated_at, synced_at`.
   - `id` equals `cms_id`, and the internal numeric id is never exposed.
   - `content: {}` serializes as an object.
@@ -625,30 +634,30 @@ token, and assert what is visible, the response shape, and pagination.
 
 ### Implementation for User Story 2
 
-- [ ] T052 [US2] Add `scopeVisibleTo(Builder $q, User $user)` to `app/Models/Content.php`.
+- [X] T052 [US2] Add `scopeVisibleTo(Builder $q, User $user)` to `app/Models/Content.php`.
   It branches on `$user->can('admin')` (the gate from T062 is the single source of role truth,
   constitution Principle II): users get `status = 'published' AND is_disabled = false`, admins
   get `status <> 'deleted'`. Until T062 lands, define the `admin` gate minimally in
   `AppServiceProvider` as part of this task. Also add
   `scopeFeedOrder` (`orderByDesc('synced_at')->orderByDesc('cms_id')`).
-- [ ] T053 [US2] Implement `app/Http/Requests/Api/V1/ListContentsRequest.php`:
+- [X] T053 [US2] Implement `app/Http/Requests/Api/V1/ListContentsRequest.php`:
   - Rules: `per_page` → `integer|between:1,100`; `cursor` → `string|prohibits:page`; `page` →
     `integer|min:1|prohibits:cursor`.
   - `perPage(): int` (default 15) and `usesPageNumbers(): bool`.
-- [ ] T054 [P] [US2] Implement `app/Http/Resources/PaginatedCollection.php` (or
+- [X] T054 [P] [US2] Implement `app/Http/Resources/PaginatedCollection.php` (or
   `paginationInformation()` on the collection), which shapes `meta` / `links` exactly as the
   contract's `CursorMeta` / `NumberedMeta` / `Links`. Invalid cursors detected via
   `Cursor::fromEncoded()` returning null → throw `ValidationException` on `cursor`.
-- [ ] T055 [P] [US2] Implement `app/Http/Resources/ContentResource.php` with the user view
+- [X] T055 [P] [US2] Implement `app/Http/Resources/ContentResource.php` with the user view
   `id` (cms_id), `version`, `content` (payload object), `cms_updated_at`, `synced_at`.
-- [ ] T056 [US2] Implement `app/Http/Controllers/Api/V1/ContentController.php`:
+- [X] T056 [US2] Implement `app/Http/Controllers/Api/V1/ContentController.php`:
   - `index(ListContentsRequest)`: `Content::visibleTo($user)->feedOrder()` →
     `cursorPaginate` or `paginate`.
   - `show(Request, string $contentId)`: resolve through `visibleTo($user)->where('cms_id',
     $contentId)->firstOrFail()`. No implicit model binding, so hidden equals not found.
   - Register `GET /contents` and `GET /contents/{contentId}` in `routes/api.php`, with
     `{contentId}` constrained to `[A-Za-z0-9][A-Za-z0-9._:-]*`.
-- [ ] T057 [US2] Run the US2 suite plus lint and commit.
+- [X] T057 [US2] Run the US2 suite plus lint and commit.
 
 **Checkpoint**: Users can browse synchronized content. US1 + US2 = end-to-end MVP.
 
@@ -664,7 +673,7 @@ gating that never leaks whether a resource exists.
 
 ### Tests for User Story 4 ⚠️ write first, they must fail
 
-- [ ] T058 [P] [US4] Write `tests/Feature/Security/ActorSeparationTest.php`:
+- [X] T058 [P] [US4] Write `tests/Feature/Security/ActorSeparationTest.php`:
   - CMS Basic credentials on `GET /api/v1/contents` and `GET /api/v1/contents/x` → `401` with
     `WWW-Authenticate: Bearer`.
   - A user or admin bearer token on `POST /cms/events` → `401`, with no batch stored.
@@ -672,7 +681,7 @@ gating that never leaks whether a resource exists.
   - Rate limiting: with `cms.api.rate_limit_per_minute` and
     `cms.webhook.rate_limit_per_minute` set to 2 in the test, the 3rd request → `429`
     problem+json with a `Retry-After` header, for both a consumer route and the webhook.
-- [ ] T059 [P] [US4] Write `tests/Feature/Security/TokenValidityTest.php`. Each of these
+- [X] T059 [P] [US4] Write `tests/Feature/Security/TokenValidityTest.php`. Each of these
   returns `401`:
   - a revoked token
   - an expired token (`expires_at` in the past)
@@ -680,13 +689,13 @@ gating that never leaks whether a resource exists.
   - a malformed token
   - a token from another table id
   - a correct token with the wrong secret part
-- [ ] T060 [P] [US4] Write `tests/Feature/Security/AccessMatrixTest.php`:
+- [X] T060 [P] [US4] Write `tests/Feature/Security/AccessMatrixTest.php`:
   - A Pest dataset `endpoint × actor → expected status` for the actors anonymous, cms, user and
     admin.
   - Initial rows cover `POST /cms/events`, `GET /api/v1/contents` and
     `GET /api/v1/contents/{id}`.
   - Later phases append rows (T066, T067, T081).
-- [ ] T061 [P] [US4] Write `tests/Feature/Security/NoCmsWritesTest.php`:
+- [X] T061 [P] [US4] Write `tests/Feature/Security/NoCmsWritesTest.php`:
   - `POST`/`PATCH`/`PUT`/`DELETE` on `/api/v1/contents` and `/api/v1/contents/{id}` → `405`
     problem+json, with the DB unchanged.
   - Iterate `Route::getRoutes()` and assert that no route under `api/v1` other than
@@ -694,7 +703,7 @@ gating that never leaks whether a resource exists.
 
 ### Implementation for User Story 4
 
-- [ ] T062 [US4] Define the authorization rules in Laravel policies and gates (constitution
+- [X] T062 [US4] Define the authorization rules in Laravel policies and gates (constitution
   Principle II: authorization goes through policies/gates):
   - Gate `admin` in `AppServiceProvider::boot()` → `$user->isAdmin() ? Response::allow() :
     Response::deny('This action requires the admin role.')`. The deny message matches the
@@ -711,17 +720,17 @@ gating that never leaks whether a resource exists.
 
   Add `tests/Feature/Policies/PolicyTest.php` with a dataset of role × ability. It lives in
   `Feature/` because gates need the booted application container.
-- [ ] T063 [US4] Implement `app/Http/Middleware/EnsureRole.php` (`role:admin`) as a thin
+- [X] T063 [US4] Implement `app/Http/Middleware/EnsureRole.php` (`role:admin`) as a thin
   adapter over the gate: `Gate::authorize($role)`, which throws `AuthorizationException('This
   action requires the admin role.')`. It contains **no** role comparison of its own. Alias it in
   `bootstrap/app.php` and add it to `$middleware->priority` **before** `SubstituteBindings`,
   so a non-admin gets 403 before any id lookup. Controllers still call policies (T069, T085) as
   the authoritative per-resource check.
-- [ ] T064 [US4] In `ProblemDetailsRenderer`, add the `WWW-Authenticate: Bearer` header on 401
+- [X] T064 [US4] In `ProblemDetailsRenderer`, add the `WWW-Authenticate: Bearer` header on 401
   for `api/*` (Basic for `cms/*`) and the 405 mapping. Make sure `auth:sanctum` rejects Basic
   headers without falling back to any other guard (`config/auth.php` default guard has no
   session fallback for API).
-- [ ] T065 [US4] Run the US4 suite plus lint and commit.
+- [X] T065 [US4] Run the US4 suite plus lint and commit.
 
 **Checkpoint**: Security matrix green for all current endpoints.
 
@@ -738,7 +747,7 @@ sees it again.
 
 ### Tests for User Story 3 ⚠️ write first, they must fail
 
-- [ ] T066 [P] [US3] Write `tests/Feature/Api/AdminContentVisibilityTest.php`:
+- [X] T066 [P] [US3] Write `tests/Feature/Api/AdminContentVisibilityTest.php`:
   - The admin list includes published, unpublished and disabled items, and excludes deleted
     ones.
   - Filters `?status=unpublished` and `?disabled=true` (combined too).
@@ -748,7 +757,7 @@ sees it again.
   - Admin `show` of an unpublished item → 200, of a deleted item → 404.
 
   Also append the admin rows for these endpoints to the T060 dataset.
-- [ ] T067 [P] [US3] Write `tests/Feature/Api/LocalOverrideTest.php`:
+- [X] T067 [P] [US3] Write `tests/Feature/Api/LocalOverrideTest.php`:
   - `PUT /contents/{id}/disabled` → 200, user list hides the item, admin still sees it, CMS
     columns are byte-identical before and after.
   - A second PUT is idempotent (same `changed_at`).
@@ -764,25 +773,25 @@ sees it again.
 
 ### Implementation for User Story 3
 
-- [ ] T068 [US3] Implement `app/Actions/Content/SetContentDisabled.php::handle(Content $content,
+- [X] T068 [US3] Implement `app/Actions/Content/SetContentDisabled.php::handle(Content $content,
   bool $disabled, User $actor): Content`:
   - Inside a transaction, `lockForUpdate`.
   - No-op if unchanged.
   - Otherwise write only `is_disabled`, `disabled_at` (now or null) and `disabled_by`.
-- [ ] T069 [US3] Implement `app/Http/Controllers/Api/V1/ContentDisabledController.php`
+- [X] T069 [US3] Implement `app/Http/Controllers/Api/V1/ContentDisabledController.php`
   (`update` → disable, `destroy` → enable). Resolve via
   `Content::visibleTo($admin)->where('cms_id', …)->firstOrFail()`, then call
   `$this->authorize('manageOverride', $content)` (`ContentPolicy`), and return the admin
   `ContentResource`. Add the routes `PUT|DELETE /contents/{contentId}/disabled` with
   `role:admin` in `routes/api.php`.
-- [ ] T070 [US3] Extend `ContentResource` with `mergeWhen($request->user()->can('admin'), …)` for
+- [X] T070 [US3] Extend `ContentResource` with `mergeWhen($request->user()->can('admin'), …)` for
   `status` and `local_override` (`disabled`, `changed_at` ← `disabled_at`, `changed_by` ←
   `disabled_by`).
-- [ ] T071 [US3] Extend `ListContentsRequest` with `status` (`in:published,unpublished`) and
+- [X] T071 [US3] Extend `ListContentsRequest` with `status` (`in:published,unpublished`) and
   `disabled` (`boolean`). When either is present, `authorize()` returns
   `Gate::allows('filter-contents')`, so a non-admin gets 403.
   Apply the filters in `ContentController::index`.
-- [ ] T072 [US3] Run the US3 suite plus lint and commit.
+- [X] T072 [US3] Run the US3 suite plus lint and commit.
 
 **Checkpoint**: Local overrides are complete and independent of CMS state.
 
@@ -797,7 +806,7 @@ context keys, and hygiene.
 
 ### Tests for User Story 5 ⚠️ write first, they must fail
 
-- [ ] T073 [P] [US5] Write `tests/Feature/Observability/EventLoggingTest.php`, attaching a
+- [X] T073 [P] [US5] Write `tests/Feature/Observability/EventLoggingTest.php`, attaching a
   Monolog `TestHandler` to the `cms` channel. Assert:
   - `cms.batch.received` with `batch_id`, `event_count`, `request_id`
   - `cms.event.applied` and `cms.event.ignored` (with `reason` duplicate/stale) with
@@ -807,7 +816,7 @@ context keys, and hygiene.
   - `cms.batch.rejected` with the field paths only
   - `cms.batch.attempt_failed` and `cms.batch.failed` with `attempt`
   - `content.override.changed` with `actor_id`, `content_id`, `disabled`
-- [ ] T074 [P] [US5] Write `tests/Feature/Observability/LogHygieneTest.php`:
+- [X] T074 [P] [US5] Write `tests/Feature/Observability/LogHygieneTest.php`:
   - Run the quickstart scenarios S1–S11 end to end with a capturing handler on **all**
     channels.
   - Assert that no record contains the CMS password, the Basic header value, any bearer token
@@ -816,29 +825,33 @@ context keys, and hygiene.
 
 ### Implementation for User Story 5
 
-- [ ] T075 [US5] Add the `cms` channel to `config/logging.php`: driver `monolog`, handler
+- [X] T075 [US5] Add the `cms` channel to `config/logging.php`: driver `monolog`, handler
   `StreamHandler` to `env('LOG_CMS_STREAM', 'php://stderr')`, formatter `JsonFormatter`, and
   level `env('LOG_CMS_LEVEL', 'info')`. Document `LOG_CMS_*` in `.env.example`.
-- [ ] T076 [P] [US5] Implement `app/Http/Middleware/AssignRequestId.php`:
+- [X] T076 [P] [US5] Implement `app/Http/Middleware/AssignRequestId.php`:
   - Accept an incoming `X-Request-Id` if it matches `^[A-Za-z0-9-]{1,64}$`, otherwise generate a
     UUID v7.
-  - Add it via `Log::shareContext`.
+  - Add it via `Log::shareContext`. Implementation note: Laravel's `Context` is used instead;
+    it is attached to every log record and also travels with queued jobs to the worker.
   - Echo it in the response header.
   - Register it globally in `bootstrap/app.php`.
-- [ ] T077 [US5] Add the logging statements:
+- [X] T077 [US5] Add the logging statements:
   - `AcceptEventBatch` → `cms.batch.received`.
   - `StoreEventBatchRequest::failedValidation` → `cms.batch.rejected`, with
     `array_keys($errors)` only.
   - `ProcessEventBatch` → per-event `cms.event.applied` / `cms.event.ignored`, and
     `cms.batch.processed` with `hrtime` duration.
   - Use `Log::channel('cms')->withContext(['batch_id' => …, 'attempt' => …])`.
-- [ ] T078 [US5] Add logging to the failure paths in `ProcessEventBatchJob`:
+- [X] T078 [US5] Add logging to the failure paths in `ProcessEventBatchJob`:
   - In `handle`, catch, log `cms.batch.attempt_failed`, and rethrow.
   - In `failed()`, log `cms.batch.failed`.
   - In `SetContentDisabled`, log `content.override.changed`.
   - Extract the sanitized error formatter to `app/Support/Logging/SafeError.php` (class +
-    message, 1000 chars, strips anything after `payload`).
-- [ ] T079 [US5] Run the US5 suite plus lint and commit.
+    message, 1000 chars). Implementation note: for `QueryException` it keeps only the driver
+    message and drops the SQL with bindings (the inbox INSERT binds the whole batch); a custom
+    `QueryException` reporter in `bootstrap/app.php` does the same for framework error logs,
+    and `zend.exception_ignore_args` keeps arguments out of traces.
+- [X] T079 [US5] Run the US5 suite plus lint and commit.
 
 **Checkpoint**: Every event outcome is traceable by `batch_id` and `request_id`.
 
@@ -854,7 +867,7 @@ and verify `processed` and correct content.
 
 ### Tests for User Story 6 ⚠️ write first, they must fail
 
-- [ ] T080 [P] [US6] Write `tests/Feature/Processing/RetryAndRecoveryTest.php` (SC-005a):
+- [X] T080 [P] [US6] Write `tests/Feature/Processing/RetryAndRecoveryTest.php` (SC-005a):
   - Inject a persistent failure and drain the queue through all 5 attempts (fake the
     backoff to 0 in the test config).
   - Assert that the batch is `failed` with `failed_at`, `attempts = 5` and a sanitized
@@ -863,7 +876,7 @@ and verify `processed` and correct content.
     correct content.
   - Assert that a batch whose events are stale by the time of the retry ends `processed`, with
     the events counted as ignored.
-- [ ] T081 [P] [US6] Write `tests/Feature/Admin/EventBatchApiTest.php`:
+- [X] T081 [P] [US6] Write `tests/Feature/Admin/EventBatchApiTest.php`:
   - `GET /api/v1/admin/event-batches`: ordering `received_at DESC`, `?status=failed` filter,
     cursor meta, invalid status → 422.
   - `GET …/{id}`: the event summary has `position, id, type, version, timestamp` and **no**
@@ -874,7 +887,7 @@ and verify `processed` and correct content.
   - A user on every batch endpoint → 403.
 
   Also append these rows to the T060 matrix.
-- [ ] T082 [P] [US6] Write `tests/Feature/Console/BatchCommandsTest.php`:
+- [X] T082 [P] [US6] Write `tests/Feature/Console/BatchCommandsTest.php`:
   - `cms:batches:failed` prints a table of failed batches.
   - `cms:batches:retry {id}` and `--all` move batches to pending and queue jobs, with
     `retried_by` null.
@@ -884,7 +897,7 @@ and verify `processed` and correct content.
 
 ### Implementation for User Story 6
 
-- [ ] T083 [US6] Implement `app/Actions/Cms/RetryEventBatch.php::handle(EventBatch $batch, ?User
+- [X] T083 [US6] Implement `app/Actions/Cms/RetryEventBatch.php::handle(EventBatch $batch, ?User
   $actor): EventBatch`. In a transaction:
   - `lockForUpdate`.
   - If the status is not `failed`, throw `app/Exceptions/BatchNotRetryableException.php`
@@ -894,11 +907,11 @@ and verify `processed` and correct content.
   - Dispatch `ProcessEventBatchJob` on the configured connection and queue inside the same
     transaction.
   - Log `cms.batch.retry_requested` with `origin: api|cli`.
-- [ ] T084 [P] [US6] Implement `app/Http/Resources/EventBatchResource.php` (the contract's
+- [X] T084 [P] [US6] Implement `app/Http/Resources/EventBatchResource.php` (the contract's
   `EventBatch` fields) and `app/Http/Resources/EventBatchDetailResource.php` (adds `events[]`
   summary mapped from the stored events: `position`, `id`, `type`, `version`, `timestamp` —
   never `payload`).
-- [ ] T085 [US6] Implement `app/Http/Requests/Api/V1/ListEventBatchesRequest.php` (`status` →
+- [X] T085 [US6] Implement `app/Http/Requests/Api/V1/ListEventBatchesRequest.php` (`status` →
   `Rule::enum(BatchStatus::class)`, `per_page` 1–100, `cursor`) and
   `app/Http/Controllers/Api/V1/Admin/EventBatchController.php`:
   - `index` uses the `status`/`received_at DESC, id DESC` order with cursor pagination.
@@ -907,17 +920,17 @@ and verify `processed` and correct content.
     `$this->authorize('viewAny', EventBatch::class)`.
   - Register `GET /admin/event-batches`, `GET /admin/event-batches/{batch}` and
     `POST /admin/event-batches/{batch}/retry` under `role:admin` in `routes/api.php`.
-- [ ] T086 [US6] Implement the console commands in `app/Console/Commands/`:
+- [X] T086 [US6] Implement the console commands in `app/Console/Commands/`:
   - `ListFailedBatches.php` (`cms:batches:failed`)
   - `RetryFailedBatches.php` (`cms:batches:retry {id?} {--all}`), via `RetryEventBatch` with
     actor null
   - `DiscardFailedBatch.php` (`cms:batches:discard {id} {--force}`)
-- [ ] T087 [US6] Make `EventBatch` `MassPrunable`: `prunable()` returns `status = processed AND
+- [X] T087 [US6] Make `EventBatch` `MassPrunable`: `prunable()` returns `status = processed AND
   processed_at < now() - config('cms.batches.retention_days') days`. In `routes/console.php`,
   schedule `model:prune --model=App\\Models\\EventBatch` daily and `sanctum:prune-expired
   --hours=24` daily. Add a test in `tests/Feature/Console/PruningTest.php` showing that failed
   and recent batches are kept.
-- [ ] T088 [US6] Run the US6 suite plus lint and commit.
+- [X] T088 [US6] Run the US6 suite plus lint and commit.
 
 **Checkpoint**: The "no acknowledged batch is lost" guarantee has a supported recovery path.
 
@@ -928,7 +941,7 @@ and verify `processed` and correct content.
 **Purpose**: Architecture guarantees, performance evidence, contract conformance, and the
 deliverable documentation.
 
-- [ ] T089 [P] Write `tests/Arch/ArchitectureTest.php` (Pest arch):
+- [X] T089 [P] Write `tests/Arch/ArchitectureTest.php` (Pest arch):
   - `app` uses strict types.
   - `App\Domain` does not use `Illuminate` or `App\Models`.
   - Controllers do not use `Illuminate\Support\Facades\DB`.
@@ -939,10 +952,10 @@ deliverable documentation.
     Pest arch expectations work on class/namespace dependencies, not method calls, so
     implement this one as a plain Pest test in the same file: it scans `app/**/*.php` for
     `->isAdmin(` and allows matches only in `app/Providers/AppServiceProvider.php`.
-- [ ] T090 [P] Create `database/seeders/DemoSeeder.php` (admin + user accounts, ~30 contents in
+- [X] T090 [P] Create `database/seeders/DemoSeeder.php` (admin + user accounts, ~30 contents in
   mixed states; prints nothing secret) and `database/seeders/PerformanceSeeder.php` (100k
   contents via chunked `insert`, realistic status mix 80/15/5 and 2% disabled).
-- [ ] T091 Write `tests/Performance/PerformanceTest.php` (Pest group `performance`, outside
+- [X] T091 Write `tests/Performance/PerformanceTest.php` (Pest group `performance`, outside
   `Feature/` and excluded from the default run, executed by the CI step in T012 and by
   `make perf`):
   - It seeds itself: the first test checks `Content::count()` and runs `PerformanceSeeder`
@@ -960,18 +973,25 @@ deliverable documentation.
     in < 5 s (SC-005, both halves).
   - Write the measured p95 and timings to `storage/logs/performance.json`, so T097 can copy
     the 100k-row numbers into the README.
-- [ ] T092 [P] Write `tests/Feature/Contract/OpenApiConformanceTest.php`:
+  - Implementation note: measuring exposed that `queue:work --stop-when-empty` sleeps 3 s
+    before stopping; `drainQueue()` now passes `--sleep=0` (the suite dropped from 44 s to
+    26 s), and the compose worker polls with `--sleep=1` (≤ ~1 s pick-up latency).
+- [X] T092 [P] Write `tests/Feature/Contract/OpenApiConformanceTest.php`:
   - Add the dev dependency `osteel/openapi-httpfoundation-testing` (verify that it supports
     OpenAPI 3.1; if it doesn't, implement a small recursive "required keys and types" asserter
     in `tests/Support/OpenApiAsserter.php` that reads `contracts/openapi.yaml` with
     `symfony/yaml`).
   - Validate the responses of every endpoint (2xx and the main 4xx) against
     `specs/001-cms-content-sync/contracts/openapi.yaml`.
-- [ ] T093 [P] Write `docs/architecture.md`: data model summary with the state machines,
+  - Implementation note: the existing PHP validators only support OpenAPI 3.0, so the fallback
+    `tests/Support/OpenApiAsserter.php` was implemented. It found a contract defect: `oneOf`
+    between `Content` and `AdminContent` can never match an administrator item (it is valid for
+    both), so those unions became `anyOf`.
+- [X] T093 [P] Write `docs/architecture.md`: data model summary with the state machines,
   ingestion/processing sequence diagram (Mermaid), concurrency strategy, auth model,
   pagination, error format, observability, and a decisions table with links to `research.md`
   R1–R21, trade-offs, and known limitations.
-- [ ] T094 Rewrite `README.md` as the deliverable entry point:
+- [X] T094 Rewrite `README.md` as the deliverable entry point:
   - overview
   - quick start: `make setup` (one command: env, build, up, migrate, demo seed), then create
     consumers/tokens; `make test` (one command) for the suite (SC-007)
@@ -984,7 +1004,7 @@ deliverable documentation.
   - architecture summary linking `docs/architecture.md`
   - known limitations
   - how it was built with Spec Kit
-- [ ] T095 Security hardening pass:
+- [X] T095 Security hardening pass:
   - `APP_DEBUG=false` and `APP_ENV=production` in the `app` image target.
   - Confirm that `.env` is ignored and no secret is in git history, with
     `gitleaks detect --redact` (run locally, and add a `secrets` job to
@@ -992,10 +1012,10 @@ deliverable documentation.
     `fetch-depth: 0` so the full history is scanned, not only the last commit).
   - `composer audit` is clean.
   - Run the `/security-review` skill on the branch and address its findings.
-- [ ] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
+- [X] T096 Check coverage: run `make coverage`, require ≥ 85% overall and 100% on
   `app/Domain`, and add the missing tests. Then enable the gate in
   `.github/workflows/ci.yml` (`--coverage --min=85`) and in `make ci`.
-- [ ] T097 Run every scenario in `specs/001-cms-content-sync/quickstart.md` (S1–S13) manually
+- [X] T097 Run every scenario in `specs/001-cms-content-sync/quickstart.md` (S1–S13) manually
   against the Docker stack, and fix any discrepancy between the docs, the contract and the
   behaviour. Run `make perf` (self-seeding 100k rows, `tests/Performance`) and
   record the measured ack/processing times and p95 latencies in the README.

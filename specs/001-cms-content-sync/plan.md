@@ -32,13 +32,13 @@ for every decision and its trade-offs.
 
 **Language/Version**: PHP 8.4 (Composer constraint `^8.3`; CI matrix 8.3 + 8.4)
 
-**Primary Dependencies**: Laravel 13.x, Laravel Sanctum 4.x; dev: Pest 5 (+ Laravel & arch
-plugins), Larastan 3, Laravel Pint
+**Primary Dependencies**: Laravel 13.x, Laravel Sanctum 4.x; dev: Pest 4 (+ Laravel & arch
+plugins), Larastan 3, Laravel Pint (Pest 4 instead of 5 for PHP 8.3 support, see research R1)
 
 **Storage**: PostgreSQL 18 (`jsonb`, partial indexes, CHECK constraints, advisory locks);
 database queue driver and database cache store on the same connection
 
-**Testing**: Pest 5 on PHPUnit 13 — unit, feature/integration against a dedicated
+**Testing**: Pest 4 on PHPUnit 12 — unit, feature/integration against a dedicated
 `cms_sync_test` PostgreSQL database, concurrency, and architecture tests; coverage gate 85%
 
 **Target Platform**: Linux containers (Alpine PHP 8.4-FPM + nginx), Docker Compose locally,
@@ -51,10 +51,10 @@ worker; consumer list/detail p95 < 300 ms with 100k content rows (SC-005, SC-006
 
 **Constraints**: All-or-nothing batches; precedence by version only; no secrets in the repo; no
 payloads or credentials in logs; tests never touch the dev database; every endpoint
-authenticated (except `/up`)
+authenticated, including the `/up` health check
 
 **Scale/Scope**: About 100k content items, batches of ≤ 100 events, a single CMS sender, tens of
-consumer accounts; 8 HTTP endpoints (+ `/up`), 6 public artisan commands (+ 1 hidden
+consumer accounts; 8 HTTP endpoints (+ the authenticated `/up` health check), 6 public artisan commands (+ 1 hidden
 test-support command)
 
 ## Constitution Check
