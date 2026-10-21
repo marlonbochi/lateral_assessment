@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Cms;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use InvalidArgumentException;
 use stdClass;
 
@@ -36,7 +37,9 @@ final readonly class CmsEvent
         return new self(
             id: self::string($raw, 'id'),
             version: self::int($raw, 'version'),
-            timestamp: new DateTimeImmutable(self::string($raw, 'timestamp')),
+            // Normalized to UTC: any RFC 3339 offset (up to ±23:59) is then
+            // storable, while PostgreSQL only accepts offsets up to ±15:59.
+            timestamp: (new DateTimeImmutable(self::string($raw, 'timestamp')))->setTimezone(new DateTimeZone('UTC')),
             type: $type,
             // Delete events may carry a payload; it is ignored.
             payload: $type->requiresPayload() && $payload instanceof stdClass ? $payload : null,

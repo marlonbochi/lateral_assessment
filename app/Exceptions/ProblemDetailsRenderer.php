@@ -98,9 +98,15 @@ final class ProblemDetailsRenderer
                 $this->headers($e),
                 [],
             ],
-            ($e instanceof QueryException || $e instanceof PDOException) && $request->is('cms/*') => [
+            ($e instanceof QueryException || $e instanceof PDOException || $e instanceof QueueNotTransactionalException) && $request->is('cms/*') => [
                 503,
                 'The batch could not be recorded. Please retry the delivery.',
+                ['Retry-After' => '5'],
+                [],
+            ],
+            $e instanceof QueueNotTransactionalException => [
+                503,
+                'Batch processing is temporarily unavailable. Please retry later.',
                 ['Retry-After' => '5'],
                 [],
             ],

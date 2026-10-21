@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\BatchStatus;
 use App\Models\Content;
 use App\Models\EventBatch;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -181,3 +182,19 @@ it('marks processed batches with applied and ignored counts', function (): void 
         ->and($batch->processed_at)->not->toBeNull()
         ->and(DB::table('jobs')->count())->toBe(0);
 });
+
+it('stores the same instant for every valid RFC 3339 offset', function (string $timestamp, string $utc): void {
+    deliver([cmsEvent('delete', 'offset-check', 1, null, $timestamp)]);
+
+    $batch = EventBatch::query()->sole();
+    $stored = DB::table('contents')->where('cms_id', 'offset-check')->value('cms_timestamp');
+
+    expect($batch->status)->toBe(BatchStatus::Processed)
+        ->and(Carbon::parse((string) $stored)->utc()->toIso8601ZuluString('microsecond'))->toBe($utc);
+})->with([
+    'largest positive offset' => ['2026-01-01T10:00:00+23:59', '2025-12-31T10:01:00.000000Z'],
+    'largest negative offset' => ['2026-01-01T10:00:00-23:59', '2026-01-02T09:59:00.000000Z'],
+    'beyond the PostgreSQL offset range' => ['2026-01-01T10:00:00+16:00', '2025-12-31T18:00:00.000000Z'],
+    'unknown local offset' => ['2026-01-01T10:00:00-00:00', '2026-01-01T10:00:00.000000Z'],
+    'fractional seconds' => ['2026-01-01T10:00:00.123456+02:00', '2026-01-01T08:00:00.123456Z'],
+]);

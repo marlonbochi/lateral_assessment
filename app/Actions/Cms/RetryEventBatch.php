@@ -9,6 +9,7 @@ use App\Exceptions\BatchNotRetryableException;
 use App\Jobs\ProcessEventBatchJob;
 use App\Models\EventBatch;
 use App\Models\User;
+use App\Support\Queue\CmsQueue;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -20,10 +21,15 @@ use Illuminate\Support\Facades\Log;
  */
 final class RetryEventBatch
 {
-    public function __construct(private readonly Dispatcher $dispatcher) {}
+    public function __construct(
+        private readonly Dispatcher $dispatcher,
+        private readonly CmsQueue $queue,
+    ) {}
 
     public function handle(EventBatch $batch, ?User $actor): EventBatch
     {
+        $this->queue->ensureTransactional();
+
         $retried = DB::transaction(function () use ($batch, $actor): EventBatch {
             /** @var EventBatch $locked */
             $locked = EventBatch::query()->lockForUpdate()->findOrFail($batch->id);
@@ -42,8 +48,8 @@ final class RetryEventBatch
 
             $this->dispatcher->dispatch(
                 (new ProcessEventBatchJob($locked->id))
-                    ->onConnection((string) config('cms.queue.connection'))
-                    ->onQueue((string) config('cms.queue.name')),
+                    ->onConnection($this->queue->connection())
+                    ->onQueue($this->queue->name()),
             );
 
             return $locked;

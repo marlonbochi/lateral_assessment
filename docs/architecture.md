@@ -119,8 +119,12 @@ The main design points:
   unsorted it fails with `40P01 deadlock detected`. The `version < incoming` guard on the upsert
   is defence in depth.
 - **Payload fidelity.** The inbox stores the validated raw body as `jsonb`, and the worker
-  copies `events -> i -> 'payload'` with SQL. Payloads never go through PHP on the write path,
-  so `{}` stays `{}` and numbers keep arbitrary precision.
+  copies `events -> i -> 'payload'` with SQL. On the read path, the API embeds the stored `jsonb`
+  text in the response without decoding it in PHP (`RawJson`). Payloads never go through PHP
+  decoding at all, so `{}` stays `{}` and numbers keep arbitrary precision end to end.
+- **Timestamps.** Offsets are validated against the RFC 3339 range (hh 00–23, mm 00–59) and
+  normalized to UTC before storage, so every valid offset is storable (PostgreSQL itself only
+  accepts offsets up to ±15:59). Fractional seconds are kept (`timestamptz(6)`).
 - **Reliability.** Jobs are retried 5 times with backoff (5 s, 30 s, 2 min, 10 min). After that
   the batch is kept as `failed`, and administrators (API) or operators (CLI) can re-process it.
   An acknowledged batch is never silently dropped.
@@ -193,12 +197,12 @@ Logs must never contain credentials, tokens or payload content:
 - **Eventual consistency.** Content is visible after the worker processes its batch: about
   1 s polling interval plus about 0.2 s of processing for 100 events.
 - **Queue location.** The atomic hand-off depends on the queue living in the same database.
+  `CmsQueue` enforces it: with any other queue the webhook answers `503` (so nothing is
+  acknowledged non-atomically) and the `cms:work` worker refuses to start.
 - **Content ids** must match `^[A-Za-z0-9][A-Za-z0-9._:-]*$` (URL-safe, up to 255 characters).
   A batch containing any other id is rejected.
 - **No content history.** Only the latest accepted version is kept. Raw batches are retained
   for 30 days (configurable) and then pruned; failed batches are never pruned automatically.
 - **Single CMS credential pair.** Rotating it requires a configuration change and a restart.
-- **Numeric precision when serving.** Numbers in a payload are stored exactly, but when served
-  through PHP, values beyond int64 or double precision are rendered as doubles.
 - **Retry latency.** After retries are exhausted (about 13 minutes of backoff in total),
   recovery needs a manual retry through the API or CLI.

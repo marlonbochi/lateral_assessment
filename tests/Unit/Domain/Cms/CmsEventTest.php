@@ -17,6 +17,15 @@ it('builds an event from a validated object, keeping the payload object', functi
         ->and($event->payload?->tags)->toEqual((object) []);
 });
 
+it('normalizes the timestamp to UTC, keeping the instant and its microseconds', function (): void {
+    $event = CmsEvent::fromValidated((object) [
+        'type' => 'delete', 'id' => 'content-1', 'version' => 1, 'timestamp' => '2026-01-01T10:00:00.123456+23:59',
+    ]);
+
+    expect($event->timestamp->getTimezone()->getName())->toBe('UTC')
+        ->and($event->timestamp->format('Y-m-d\\TH:i:s.uP'))->toBe('2025-12-31T10:01:00.123456+00:00');
+});
+
 it('drops a payload sent with a delete event', function (): void {
     $event = CmsEvent::fromValidated((object) [
         'type' => 'delete', 'id' => 'content-1', 'version' => 5,

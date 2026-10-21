@@ -1025,6 +1025,30 @@ deliverable documentation.
 
 ---
 
+## Phase 10: Post-merge review fixes
+
+**Purpose**: Fix the findings from manual testing after PR #1 was merged (branch
+`fix/review-findings`). Each fix is test-first.
+
+- [X] T099 [US1] Reject timestamps whose offset is outside the RFC 3339 range (`+23:99`,
+  `-05:60`, `+24:00`) in `app/Rules/Rfc3339DateTime.php`, which now also parses with the same
+  parser as `CmsEvent`. Normalize event timestamps to UTC in `app/Domain/Cms/CmsEvent.php`, so
+  valid offsets beyond PostgreSQL's ±15:59 are storable. Widen `contents.cms_timestamp` to
+  `timestamptz(6)` (it was created as `timestamptz(0)`, dropping fractional seconds). Tests:
+  `BatchValidationTest`, `EventProcessingTest` ("stores the same instant…"), `CmsEventTest`.
+- [X] T100 [US2] Serve payloads exactly as stored: `JsonObjectPayload` returns
+  `App\Support\Json\RawJson` and content resources embed it verbatim (`EmbedsRawJson`), so
+  numbers beyond int64/double precision are exact and `1e400` no longer fails with a 500.
+  Saving a model after reading its payload no longer rewrites it. Tests:
+  `tests/Feature/Api/PayloadPrecisionTest.php`, `tests/Unit/Support/RawJsonTest.php`.
+- [X] T101 [US6] Make the worker follow `CMS_QUEUE_CONNECTION` / `CMS_QUEUE_NAME`: new
+  `cms:work` command (used by the Docker worker and `drainQueue()`); `App\Support\Queue\CmsQueue`
+  is the single reader of the queue config and enforces a database queue on the application
+  database (webhook and admin retry answer 503 otherwise; `cms:work` refuses to start). Tests:
+  `tests/Feature/Queue/CmsWorkerTest.php`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

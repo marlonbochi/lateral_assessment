@@ -83,9 +83,8 @@ function postBatch(array $events): TestResponse
  */
 function drainQueue(): void
 {
-    Artisan::call('queue:work', [
-        'connection' => 'database',
-        '--queue' => (string) config('cms.queue.name'),
+    // The same command the Docker worker runs (connection and queue from config).
+    Artisan::call('cms:work', [
         '--stop-when-empty' => true,
         // Without this the worker sleeps 3 s (the default) before noticing the
         // queue is empty, which would dominate every test that drains it.

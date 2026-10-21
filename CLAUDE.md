@@ -27,7 +27,7 @@ international Senior PHP Engineer position.
   tests with the 85% coverage gate), `make perf` (100k-row performance group), `make fix`.
 - Test layout: `Unit`, `Feature` (RefreshDatabase), `Database`, `Concurrency`, `Arch`,
   `Performance` (opt-in). Tests run on `cms_sync_test` only; `TestCase` aborts otherwise.
-- Test helpers (`tests/Pest.php`): `postBatch()`, `drainQueue()` (real database worker, sleep 0),
+- Test helpers (`tests/Pest.php`): `postBatch()`, `drainQueue()` (runs `cms:work`, sleep 0),
   `actingAsRole()` (forgets cached guards), `cmsEvent()` (pass `(object) []` for `{}`).
 - Role decisions only through the `admin` gate (`$user->can('admin')`); an arch test enforces it.
 - Never log payloads, credentials or SQL bindings; use `SafeError` for error summaries.
