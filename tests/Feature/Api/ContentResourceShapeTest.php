@@ -29,8 +29,11 @@ it('serializes CMS payloads with empty objects as objects', function (): void {
     Content::factory()->published()->create(['cms_id' => 'nested', 'payload' => (object) ['tags' => (object) [], 'items' => []]]);
     actingAsRole(Role::User);
 
-    expect(getJson('/api/v1/contents/empty')->getContent())->toContain('"content":{}')
-        ->and(getJson('/api/v1/contents/nested')->getContent())->toContain('"content":{"tags":{},"items":[]}');
+    // Decoded as objects so {} (stdClass) and [] (array) stay distinguishable.
+    $content = fn (string $id): mixed => json_decode((string) getJson("/api/v1/contents/{$id}")->getContent(), false)->data->content;
+
+    expect($content('empty'))->toEqual(new stdClass)
+        ->and($content('nested'))->toEqual((object) ['tags' => new stdClass, 'items' => []]);
 });
 
 it('never exposes internal identifiers or override details to regular users', function (): void {

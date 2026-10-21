@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\Concerns\EmbedsRawJson;
 use App\Models\Content;
+use App\Support\Json\RawJson;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,6 +15,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 final class ContentResource extends JsonResource
 {
+    use EmbedsRawJson;
+
     /**
      * The int key holds the conditional MergeValue that Laravel flattens into
      * the administrator fields.
@@ -24,8 +28,9 @@ final class ContentResource extends JsonResource
         return [
             'id' => $this->cms_id,
             'version' => $this->version,
-            // stdClass keeps {} as an object in the JSON response.
-            'content' => $this->payload ?? (object) [],
+            // Served exactly as stored: no PHP decoding, so {} stays {} and
+            // numbers keep their full precision.
+            'content' => $this->payload ?? new RawJson('{}'),
             'cms_updated_at' => $this->cms_timestamp->toISOString(),
             'synced_at' => $this->synced_at->toISOString(),
             // Administrator view: role decided through the `admin` gate.
