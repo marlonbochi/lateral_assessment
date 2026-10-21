@@ -21,8 +21,8 @@ content locally without touching CMS-managed data.
   that runs real parallel processes (it deadlocks if the locks are not sorted).
 - **Separate actors.** The CMS uses HTTP Basic credentials from the environment; consumers use
   revocable bearer tokens. Every role decision goes through one gate.
-- **Exact payloads.** CMS payloads are stored exactly as received (`{}` stays `{}`, numbers keep
-  their precision) and are never logged.
+- **Exact payloads.** CMS payload values are kept exactly (`{}` stays `{}`, numbers of any size
+  or precision are stored and served without rounding) and are never logged.
 - **Quality gates.** 577 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
   OpenAPI conformance tests, and CI on PHP 8.3 and 8.4.
 
@@ -43,8 +43,8 @@ make setup
 4. seeds demo data.
 
 Then give the CMS real credentials in `.env` (`CMS_WEBHOOK_USERNAME`, `CMS_WEBHOOK_PASSWORD`)
-and run `make up` to apply them. Create a consumer token for each demo account (the token is
-shown only once):
+and run `docker compose restart app worker` to apply them. Create a consumer token for each demo
+account (the token is shown only once):
 
 ```bash
 docker compose exec app php artisan consumer:token admin@example.test
@@ -70,11 +70,30 @@ The full contract (request and response schemas, status codes, errors) is in
 
 ### CMS webhook
 
-`POST /cms/events` accepts 1–100 events and answers `202` with a `batch_id`.
+`POST /cms/events` (HTTP Basic) takes a JSON array of 1–100 events, in the format of the brief.
 
 ```bash
 curl -u "$CMS_USER:$CMS_PASS" -H 'Content-Type: application/json' -d @docs/examples/batch.json http://localhost:8080/cms/events
 ```
+
+Each event is validated, and **one invalid event rejects the whole batch** (nothing is stored):
+
+| Field | Rule |
+|---|---|
+| `type` | `publish`, `unpublish` or `delete` |
+| `id` | string, 1–255 characters, URL-safe: `^[A-Za-z0-9][A-Za-z0-9._:-]*$` |
+| `version` | JSON integer, 1 to 2^63−1 (`"2"` and `2.5` are rejected) |
+| `timestamp` | RFC 3339 date-time with an offset (`Z` or `±hh:mm`, hh 00–23, mm 00–59) |
+| `payload` | JSON object, required for `publish` and `unpublish`; optional and ignored for `delete` |
+
+| Status | Meaning |
+|---|---|
+| `202` | Batch stored and queued: `{"data":{"batch_id":"…","status":"pending","event_count":3,"received_at":"…"}}` |
+| `401` | Missing or wrong CMS credentials (`WWW-Authenticate: Basic`) |
+| `413` / `415` | Body over 1 MiB / body is not JSON |
+| `422` | Invalid batch; `errors` names each field, for example `events.2.version` |
+| `429` | Rate limit (300 requests per minute per IP) |
+| `503` | The batch could not be recorded; retry after `Retry-After` |
 
 ### Consumer API (bearer token)
 
@@ -85,6 +104,26 @@ curl -u "$CMS_USER:$CMS_PASS" -H 'Content-Type: application/json' -d @docs/examp
 | `PUT` / `DELETE` | `/api/v1/contents/{id}/disabled` | admin | Disable / re-enable locally. Idempotent; CMS data is untouched. |
 | `GET` | `/api/v1/admin/event-batches[/{id}]` | admin | Inspect batches (an event summary, never payloads). |
 | `POST` | `/api/v1/admin/event-batches/{id}/retry` | admin | Re-process a failed batch (`409` unless the batch failed). |
+
+A content item as an administrator sees it. Regular users get the same object without
+`status` and `local_override`:
+
+```json
+{
+  "data": {
+    "id": "content-123",
+    "version": 2,
+    "content": { "title": "Example content", "description": "Some content" },
+    "cms_updated_at": "2026-01-01T10:00:00.000000Z",
+    "synced_at": "2026-01-01T10:00:01.000000Z",
+    "status": "published",
+    "local_override": { "disabled": false, "changed_at": null, "changed_by": null }
+  }
+}
+```
+
+Listings return `data` plus `meta`/`links`: `meta.next_cursor` in cursor mode, and `total` and
+`last_page` in page mode.
 
 Examples:
 
@@ -121,6 +160,26 @@ Errors use **RFC 9457 Problem Details** (`application/problem+json`). Validation
   webhook both get `401`.
 - **Every endpoint is protected**, as the brief requires. That includes the `GET /up` health
   check, which answers `{"status":"up"}` only to an authenticated consumer.
+
+## Data model
+
+| Table | Holds |
+|---|---|
+| `contents` | One row per CMS entity (`cms_id` unique): `version`, `status` (`published`, `unpublished` or `deleted`), the `payload` (`jsonb`), `cms_timestamp`, `synced_at`, and the local override (`is_disabled`, `disabled_at`, `disabled_by`). |
+| `event_batches` | The inbox: every acknowledged batch as received (`jsonb`), with its status (`pending`, `processed` or `failed`), attempts, and applied/ignored counts. |
+| `users`, `personal_access_tokens` | Consumer accounts with a `role` (`user` or `admin`), and their hashed Sanctum tokens. |
+| `jobs`, `failed_jobs` | The database queue, in the same PostgreSQL database as the inbox. |
+
+- **Precedence state:** `contents.version` is the latest accepted version. An event applies only
+  if its version is strictly higher (or the entity is unknown); equal versions are duplicates
+  and lower ones are stale.
+- **Tombstones:** a delete keeps the row with `status = deleted` and `payload = NULL`, so an older
+  event that arrives late can never restore it. A newer publish or unpublish re-creates it.
+- **Field ownership:** event processing writes only the CMS columns; the override endpoints write
+  only the override columns. That is why the override survives any CMS update.
+- **Invariants in the database:** CHECK constraints (`version > 0`, valid status,
+  `payload IS NULL` exactly when deleted, payload is an object) and partial indexes that match
+  each feed's order, so listings are index scans without a sort.
 
 ## Synchronous vs asynchronous processing
 
@@ -214,6 +273,18 @@ make perf
 
 `make perf` runs the performance group against 100k content rows.
 
+The brief's required coverage maps to these tests:
+
+| Required by the brief | Where |
+|---|---|
+| Valid and invalid authentication | `tests/Feature/Webhook/CmsAuthenticationTest.php`, `tests/Feature/Security/TokenValidityTest.php`, `ActorSeparationTest.php`, `AccessMatrixTest.php` (every route × every actor) |
+| Duplicate and out-of-order events | `tests/Feature/Processing/EventProcessingTest.php` (scenarios 2, 3, 9, 10), `tests/Unit/Domain/Cms/EventPrecedencePermutationTest.php` (200 random orderings with duplicates) |
+| The unpublish edge case (v3 → unpublish v4 never published) | `EventProcessingTest.php` scenario 4, `tests/Unit/Domain/Cms/EventPrecedenceTest.php` |
+| Deletion and protection against older events | `EventProcessingTest.php` scenarios 6, 7, 8 and 11 |
+| Administrator overrides and consumer visibility | `tests/Feature/Api/LocalOverrideTest.php`, `UserContentVisibilityTest.php`, `AdminContentVisibilityTest.php`, `tests/Feature/Security/NoCmsWritesTest.php` |
+| Invalid batches are rejected as a whole | `tests/Feature/Webhook/BatchValidationTest.php`, `tests/Feature/Processing/BatchAtomicityTest.php` |
+| Tests do not use the development database | `tests/TestCase.php` guard, `tests/Unit/TestDatabaseGuardTest.php`, `phpunit.xml` (forces `cms_sync_test`) |
+
 - Tests **never use the development database.** They run on `cms_sync_test`, and `TestCase`
   aborts if the configured database is not a `*_test` database. That guard caught a real
   misconfiguration during development.
@@ -262,6 +333,11 @@ In short:
 - **Content ids** must be URL-safe (`^[A-Za-z0-9][A-Za-z0-9._:-]*$`, at most 255 characters).
 - **No content history.** Only the latest version is kept; raw batches are retained for 30 days.
 - **Credential rotation.** There is one CMS credential pair, and rotating it requires a restart.
+- **Payload representation.** Payloads are stored as `jsonb`: every value is kept exactly, but
+  PostgreSQL normalizes the representation (keys are reordered, a duplicated key keeps its last
+  value, `1e2` is stored as `100`, and whitespace changes).
+- **Timestamps in UTC.** `cms_updated_at` is the same instant the CMS sent, returned in UTC; the
+  original offset is not kept.
 
 ## How this was built
 
@@ -275,8 +351,9 @@ This repository follows **Spec-Driven Development** with
    [`data-model.md`](specs/001-cms-content-sync/data-model.md),
    [`openapi.yaml`](specs/001-cms-content-sync/contracts/openapi.yaml).
 4. Cross-artifact analysis.
-5. Test-first implementation of the 98 tasks in
-   [`tasks.md`](specs/001-cms-content-sync/tasks.md).
+5. Test-first implementation of the tasks in
+   [`tasks.md`](specs/001-cms-content-sync/tasks.md), including a final phase (T099–T101)
+   with fixes found by testing the running service by hand.
 
 Deviations discovered during implementation are recorded next to the affected task and research
 item. Examples: Pest 4 instead of 5, payloads copied in SQL, and the contract's `oneOf` →

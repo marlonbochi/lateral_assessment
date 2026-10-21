@@ -204,5 +204,8 @@ Logs must never contain credentials, tokens or payload content:
 - **No content history.** Only the latest accepted version is kept. Raw batches are retained
   for 30 days (configurable) and then pruned; failed batches are never pruned automatically.
 - **Single CMS credential pair.** Rotating it requires a configuration change and a restart.
+- **Payload representation.** Values are kept exactly, but `jsonb` normalizes the
+  representation: keys are reordered, a duplicated key keeps its last value, `1e2` becomes `100`,
+  and whitespace changes. Timestamps are returned in UTC; the original offset is not kept.
 - **Retry latency.** After retries are exhausted (about 13 minutes of backoff in total),
   recovery needs a manual retry through the API or CLI.
