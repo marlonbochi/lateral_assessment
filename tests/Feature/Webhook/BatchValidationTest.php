@@ -64,6 +64,10 @@ it('rejects the whole batch and stores nothing when it is invalid', function (st
     'date without time and offset' => [fn () => json_encode([cmsEvent('delete', 'a', 1, null, '2026-01-01')]), 'events.0.timestamp'],
     'date-time without offset' => [fn () => json_encode([cmsEvent('delete', 'a', 1, null, '2026-01-01T10:00:00')]), 'events.0.timestamp'],
     'missing timestamp' => ['[{"type":"delete","id":"a","version":1}]', 'events.0.timestamp'],
+    // RFC 3339 offsets are hh:mm with hh 00-23 and mm 00-59.
+    'offset minutes out of range' => [fn () => json_encode([cmsEvent('delete', 'a', 1, null, '2026-01-01T10:00:00+23:99')]), 'events.0.timestamp'],
+    'offset minute 60' => [fn () => json_encode([cmsEvent('delete', 'a', 1, null, '2026-01-01T10:00:00-05:60')]), 'events.0.timestamp'],
+    'offset hour 24' => [fn () => json_encode([cmsEvent('delete', 'a', 1, null, '2026-01-01T10:00:00+24:00')]), 'events.0.timestamp'],
     'unknown type' => [fn () => json_encode([cmsEvent('archive', 'a', 1)]), 'events.0.type'],
     'publish without payload' => [fn () => json_encode([cmsEvent('publish', 'a', 1)]), 'events.0.payload'],
     'unpublish with a string payload' => ['[{"type":"unpublish","id":"a","version":1,"timestamp":"2026-01-01T10:00:00Z","payload":"text"}]', 'events.0.payload'],
