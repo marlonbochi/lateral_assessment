@@ -366,6 +366,12 @@ ends as processed and the content state is correct.
   as unauthenticated.
 - **FR-019**: Authentication failures MUST return an "unauthenticated" response; authenticated
   requests lacking the required role MUST return a "forbidden" response.
+- **FR-019a**: The service MUST NOT run on a PHP release with a known critical vulnerability. The
+  minimum patched release of each supported branch is defined once and checked at build time
+  (the Docker build fails), in CI, and on demand (`php artisan security:php`). Current baseline:
+  8.3.36, 8.4.27 or 8.5.12, which fix CVE-2026-109618 and CVE-2026-109619 (unauthenticated RCE,
+  2026-10-21). Request-parsing features the API does not use (form and multipart parsing, file
+  uploads, session upload progress) MUST be disabled in the runtime configuration.
 
 **Consumer API**
 

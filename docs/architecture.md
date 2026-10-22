@@ -148,6 +148,11 @@ The main design points:
   and the access matrix test covers it.
 - Rate limits are applied per token (API) and per IP (webhook). Request bodies are limited to
   1 MiB.
+- **Patched runtime.** `PhpRuntimePolicy` defines the minimum patched PHP release per branch
+  (currently 8.3.36, 8.4.27 and 8.5.12, for CVE-2026-109618 and CVE-2026-109619). The Composer
+  constraint, the pinned Docker base image, the Docker build (`php artisan security:php`) and CI
+  are all checked against it. `php.ini` disables form and multipart parsing, uploads and session
+  upload progress, because the API reads only JSON from `php://input`.
 
 ## 5. Consumer API design
 

@@ -17,6 +17,19 @@ These decisions are summarized again in the README's "Architecture & trade-offs"
   Pest 4.7 has the same API, supports Laravel 13 and PHP ^8.3, so it replaces Pest 5. Pinning
   the Composer platform to 8.3 guarantees the lock file stays installable on 8.3 (it now
   resolves Symfony 7.4 instead of 8.x).
+- **Amendment (security, 2026-10-22)**: PHP 8.3.36, 8.4.27 and 8.5.12 fix CVE-2026-109618 and
+  CVE-2026-109619 ("php2shell"), two unauthenticated RCE bugs in the engine's request handling;
+  one has a confirmed exploit against PHP-FPM. The running image was 8.4.26, because the
+  Dockerfile used the floating `php:8.4-fpm-alpine` tag. Changes:
+  - `App\Support\Security\PhpRuntimePolicy` holds the minimum patched release per branch.
+  - Composer requires `~8.3.36 || ~8.4.27 || ~8.5.12` (platform `8.3.36`).
+  - The image pins `php:8.4.27-fpm-alpine`, and its build runs `php artisan security:php`.
+  - CI runs the same check, and Dependabot proposes newer base images.
+  - `php.ini` disables POST/multipart parsing, uploads and session upload progress. The API
+    reads only JSON from `php://input`, so this closes the advisory's request-parsing attack
+    paths at no cost.
+  - Pinning an exact patch trades automatic patch pickup for reproducible, reviewed builds;
+    Dependabot plus the policy test keep it current.
 - **Rationale**: Latest stable releases as of 2026-10. Laravel 13 requires PHP ≥ 8.3, which
   matches the challenge's "PHP 8.3+" requirement; developing on 8.4 while declaring `^8.3`
   keeps the code compatible with both. Every package except Pest/Larastan is first-party Laravel.
