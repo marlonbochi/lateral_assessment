@@ -37,6 +37,11 @@ business guarantee of a downstream replica.
   return a uniform `401` without revealing which part was wrong.
 - Consumers MUST NOT be able to modify CMS-managed content through any endpoint. The only
   consumer-writable state is the administrator's local override.
+- The PHP runtime MUST be a supported branch on a patch release with no known critical
+  vulnerability. The minimum patched release per branch is defined once in code and enforced by
+  the Composer constraint, the Docker build and CI; it MUST be raised whenever a PHP security
+  release fixes a critical issue. PHP features the service does not use on its request path
+  (form and multipart parsing, file uploads) SHOULD be disabled.
 
 Rationale: security is a co-equal top priority with correctness in the challenge evaluation.
 
@@ -118,8 +123,9 @@ be able to explain every part of the implementation.
   separate test database or schema) with a single documented bootstrap command.
 - **CI/CD**: A GitHub Actions pipeline MUST run on every push and pull request and fail the
   build on any of: Composer validation/audit, Pint style check, Larastan analysis, migrations
-  against PostgreSQL, and the full test suite (unit + feature) against a PostgreSQL service.
-  The Docker image MUST build successfully in CI.
+  against PostgreSQL, the full test suite (unit + feature) against a PostgreSQL service, and a
+  PHP runtime below the minimum patched release. The Docker image MUST build successfully in
+  CI, and the build MUST refuse a vulnerable PHP base image.
 - **Deliverables**: Laravel application with migrations, automated tests, `.env.example`
   without secrets, README (setup, configuration, running, testing), webhook and consumer API
   documentation, and a short explanation of data model, event processing, architecture,
@@ -147,4 +153,9 @@ be able to explain every part of the implementation.
   materially expanded guidance, PATCH for clarifications and wording.
 - Complexity beyond these principles MUST be justified in writing in the relevant plan.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-16 | **Last Amended**: 2026-10-16
+**Version**: 1.1.0 | **Ratified**: 2026-10-16 | **Last Amended**: 2026-10-22
+
+Amendment history:
+
+- 1.1.0 (2026-10-22): Principle II and the CI constraint now require a PHP runtime patched
+  against known critical vulnerabilities (prompted by CVE-2026-109618 and CVE-2026-109619).
