@@ -2,8 +2,11 @@
 
 # ---------------------------------------------------------------------------
 # base: PHP 8.4 FPM with the extensions the application needs.
+# The tag pins an exact patch release, at or above the minimum in
+# App\Support\Security\PhpRuntimePolicy (8.4.27 fixes CVE-2026-109618 and
+# CVE-2026-109619); Dependabot proposes newer patches.
 # ---------------------------------------------------------------------------
-FROM php:8.4-fpm-alpine AS base
+FROM php:8.4.27-fpm-alpine AS base
 
 RUN apk add --no-cache icu-libs libpq \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev linux-headers \
@@ -25,6 +28,8 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-scripts --no-autoloader --no-interaction
 COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev --no-scripts
+# Refuse to build an image whose PHP runtime has a known critical vulnerability.
+RUN php artisan security:php
 
 # ---------------------------------------------------------------------------
 # app: production image (no dev dependencies, no Composer, non-root).

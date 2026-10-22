@@ -6,7 +6,7 @@ paginated **REST API** for regular users and administrators. Administrators can 
 content locally without touching CMS-managed data.
 
 > Take-home challenge for a Senior PHP Engineer position.
-> PHP 8.3+ · Laravel 13 · PostgreSQL 18 · Sanctum · Pest · Docker · GitHub Actions
+> PHP 8.3.36+ / 8.4.27+ · Laravel 13 · PostgreSQL 18 · Sanctum · Pest · Docker · GitHub Actions
 
 ## Highlights
 
@@ -23,7 +23,7 @@ content locally without touching CMS-managed data.
   revocable bearer tokens. Every role decision goes through one gate.
 - **Exact payloads.** CMS payload values are kept exactly (`{}` stays `{}`, numbers of any size
   or precision are stored and served without rounding) and are never logged.
-- **Quality gates.** 577 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
+- **Quality gates.** 598 tests at 95% coverage (100% on the domain), Larastan level 8, Pint,
   OpenAPI conformance tests, and CI on PHP 8.3 and 8.4.
 
 ## Quick start
@@ -156,6 +156,11 @@ Errors use **RFC 9457 Problem Details** (`application/problem+json`). Validation
     `consumer:create`, `consumer:token` and `consumer:revoke`.
   - JWTs were rejected (hard to revoke, extra dependency), and so were static API keys (no
     per-client identity or revocation).
+- **Patched PHP only.** The service requires PHP 8.3.36+, 8.4.27+ or 8.5.12+, which fix
+  CVE-2026-109618 and CVE-2026-109619 (unauthenticated RCE, October 2026). The minimums live in
+  `App\Support\Security\PhpRuntimePolicy`. The Docker build and CI fail on an older release,
+  and `php artisan security:php` checks any environment. PHP's form and multipart parsing is
+  disabled, since the API only reads JSON.
 - The two credential types never overlap: Basic credentials on the API and tokens on the
   webhook both get `401`.
 - **Every endpoint is protected**, as the brief requires. That includes the `GET /up` health
@@ -307,8 +312,8 @@ Measured on 100k rows with `make perf`, on a laptop:
 | Acknowledge a 100-event batch | < 300 ms | 75 ms |
 | Process a 100-event batch | < 5 s | 0.17 s (plus up to 1 s worker polling) |
 
-CI (GitHub Actions) runs Composer validate and audit, Pint, Larastan, the tests on PHP 8.3 and
-8.4 against `postgres:18` with the coverage gate, the performance group (20k rows), an OpenAPI
+CI (GitHub Actions) runs Composer validate and audit, Pint, Larastan, the PHP security baseline
+check, the tests on PHP 8.3 and 8.4 against `postgres:18` with the coverage gate, the performance group (20k rows), an OpenAPI
 lint, gitleaks over the full history, and a Docker image build.
 
 ## Architecture

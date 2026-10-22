@@ -1055,6 +1055,28 @@ deliverable documentation.
 
 ---
 
+## Phase 11: PHP security baseline (CVE-2026-109618 / CVE-2026-109619)
+
+**Purpose**: The PHP security releases of 2026-10-21 fix two critical unauthenticated RCE bugs.
+Make sure the service cannot run or be built on an affected release (FR-019a, constitution
+v1.1.0). Branch `fix/php-cve-2026-109618`.
+
+- [X] T102 [US4] `App\Support\Security\PhpRuntimePolicy` (minimum patched release per branch,
+  derived Composer constraint) and the `security:php` command. Tests:
+  `tests/Unit/Security/PhpRuntimePolicyTest.php`, `tests/Feature/Security/PhpRuntimeTest.php`
+  (running PHP, `composer.json`, Dockerfile tag, `php.ini`, command).
+- [X] T103 [US4] Pin `php:8.4.27-fpm-alpine`, run `php artisan security:php` in the Docker
+  build, require `~8.3.36 || ~8.4.27 || ~8.5.12` in Composer (platform `8.3.36`), and disable
+  POST/multipart parsing, uploads and session upload progress in `docker/php/php.ini`. Verified
+  that a build from `php:8.4.26` fails, and that JSON webhooks still work through FPM while
+  multipart requests get `415`.
+- [X] T104 [US4] CI runs `php artisan security:php` before the suite; `.github/dependabot.yml`
+  proposes newer Docker, Composer and GitHub Actions versions weekly.
+- [X] T105 Record the change: constitution v1.1.0, spec FR-019a, research R1 amendment, README,
+  architecture and `CLAUDE.md`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -75,6 +75,8 @@ jobs:
           coverage: pcov
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHP security baseline
+        run: php artisan security:php
       - run: php artisan migrate --env=testing --force
       - name: Test suite
         run: vendor/bin/pest --parallel --coverage --min=85

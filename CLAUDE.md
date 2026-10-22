@@ -10,7 +10,7 @@ international Senior PHP Engineer position.
 
 ## Stack & key design (see `specs/001-cms-content-sync/plan.md` and `research.md`)
 
-- PHP 8.4 (`^8.3`, Composer platform pinned to 8.3), Laravel 13, Sanctum 4, PostgreSQL 18,
+- PHP 8.4.27 (Composer `~8.3.36 || ~8.4.27 || ~8.5.12`, platform 8.3.36), Laravel 13, Sanctum 4, PostgreSQL 18,
   Pest 4 (Pest 5 needs PHP 8.4), Larastan 3, Pint. Tests use `Pest\Laravel\*` functions
   (typed for Larastan), not `$this->`. Pest resolves closures inside dataset tuples only when
   the test parameter has a concrete type (not `mixed`/`Closure`); never nest `fn () => fn () =>`.
@@ -36,6 +36,8 @@ international Senior PHP Engineer position.
 - Never decode payloads in PHP: `contents.payload` is a `RawJson` (stored `jsonb` text) that content
   resources embed verbatim (`EmbedsRawJson`); timestamps are normalized to UTC in `CmsEvent`.
 - Generated storage and the PHPStan cache must never be committed (they capture env values).
+- PHP versions: raise the minimums in `App\Support\Security\PhpRuntimePolicy` on every critical
+  PHP security release, then update the Docker tag and `composer.json` (tests enforce they match).
 
 ## Ground rules
 
