@@ -6,7 +6,7 @@
 # App\Support\Security\PhpRuntimePolicy (8.4.27 fixes CVE-2026-109618 and
 # CVE-2026-109619); Dependabot proposes newer patches.
 # ---------------------------------------------------------------------------
-FROM php:8.4.27-fpm-alpine AS base
+FROM php:8.5.12-fpm-alpine AS base
 
 RUN apk add --no-cache icu-libs libpq \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev linux-headers \
